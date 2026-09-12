@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Prestatge">
+<meta name="theme-color" content="#1f6f5c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Prestatge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+:root{
+  --paper:#f3f5f3; --card:#ffffff; --ink:#1c2624; --ink-2:#5b6a66; --line:#d7ddda;
+  --accent:#1f6f5c; --accent-ink:#ffffff; --accent-soft:#dcefe8;
+  --warn:#b9761d; --warn-soft:#f6ead6; --bad:#a3382d; --bad-soft:#f4dcd8;
+  --shelf:#8b6b4a; --shelf-dark:#5f4631;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Fraunces","Iowan Old Style",Georgia,serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --paper:#141b19; --card:#1d2624; --ink:#e8ecea; --ink-2:#98a6a1; --line:#2f3b38;
+  --accent:#4fb596; --accent-ink:#0d1a16; --accent-soft:#1d3a32;
+  --warn:#e0a24a; --warn-soft:#3d2e15; --bad:#e2766a; --bad-soft:#3f1f1b;
+  --shelf:#7a5c40; --shelf-dark:#4a3627; color-scheme:dark;}}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased;padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.01em;text-wrap:balance;margin:0}
+h1{font-size:26px} h2{font-size:20px} h3{font-size:17px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 12px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.ghost{background:transparent}
+button.small{padding:4px 8px;font-size:13px;border-radius:6px}
+button.danger{color:var(--bad);border-color:var(--bad-soft)}
+input[type=text],input[type=number],input[type=search],select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+input[type=number]{font-variant-numeric:tabular-nums}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+label.f>span{font-weight:500;text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+.wrap{max-width:760px;margin:0 auto;padding:16px}
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+header.top .count{color:var(--ink-2);font-variant-numeric:tabular-nums;font-size:13px}
+.view{display:none}.view.active{display:block}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:10}
+nav.tabs button{flex:1;border:0;border-radius:0;background:transparent;padding:10px 4px 8px;font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;align-items:center;gap:2px}
+nav.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button.active{color:var(--accent);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.muted{color:var(--ink-2);font-size:13px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);background:var(--paper);white-space:nowrap}
+.pill.h{background:var(--accent-soft);border-color:transparent}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:14px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+/* scanner */
+#reader{width:100%;border-radius:12px;overflow:hidden;background:#000;min-height:60px}
+#reader video{width:100%!important;border-radius:12px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1 1 auto;min-width:0;padding:10px 6px;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.2}
+.seg button small{font-size:11px;color:var(--ink-2);font-weight:400}
+.seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.seg button.on small{color:inherit;opacity:.85}
+.bookcard{display:grid;grid-template-columns:64px 1fr;gap:12px}
+.bookcard img,.bookcard .nocover{width:64px;height:92px;object-fit:cover;border-radius:4px;background:var(--line);display:block}
+.bookcard .nocover{display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--ink-2);text-align:center;padding:4px}
+/* list */
+.list{display:flex;flex-direction:column;gap:6px}
+.item{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.item .t{font-weight:500}
+.item .s{font-size:13px;color:var(--ink-2);display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:2px}
+.item.pending{border-left:4px solid var(--warn)}
+/* shelves */
+.shelfrow{display:grid;grid-template-columns:1fr 84px 84px auto;gap:6px;align-items:end}
+.shelfrow label.f>span{font-size:10px}
+/* results */
+.shelfblock{margin-bottom:18px}
+.shelfblock h3{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.fill{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:6px 0 8px}
+.fill i{display:block;height:100%;background:var(--accent)}
+.fill i.over{background:var(--bad)}
+.rec{margin:0 0 8px;padding:8px 10px;background:var(--accent-soft);border-radius:8px;font-size:14px}
+.spines{display:flex;align-items:flex-end;gap:1px;padding:0 6px;height:120px;overflow-x:auto;background:linear-gradient(to top,var(--shelf) 0 8px,transparent 8px);border-bottom:6px solid var(--shelf-dark);border-radius:2px}
+.spine{flex:0 0 auto;border-radius:2px 2px 0 0;position:relative;min-width:3px;opacity:.9;border-right:1px solid rgba(0,0,0,.18)}
+.spine span{position:absolute;left:50%;bottom:6px;transform:translateX(-50%) rotate(-90deg);transform-origin:center;white-space:nowrap;font-size:9px;color:#fff;text-shadow:0 0 2px rgba(0,0,0,.6);pointer-events:none}
+ol.order{margin:8px 0 0;padding-left:0;list-style:none;counter-reset:pos}
+ol.order li{display:grid;grid-template-columns:32px 1fr;gap:6px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+ol.order li::before{counter-increment:pos;content:counter(pos);font-variant-numeric:tabular-nums;color:var(--ink-2);text-align:right;padding-right:4px}
+ol.order li .g{font-size:12px;color:var(--ink-2)}
+.grouphead{margin:10px 0 2px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);display:flex;gap:8px;align-items:center}
+.grouphead::after{content:"";flex:1;height:1px;background:var(--line)}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.legend .pill i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.sortlist{display:flex;flex-direction:column;gap:4px}
+.sortlist .item{padding:6px 10px}
+details summary{cursor:pointer;font-weight:500}
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(--card);color:var(--ink);width:min(560px,94vw);max-height:90vh}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .wrap{padding:16px}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+@media print{nav.tabs,#view-scan,#view-books,#view-shelves,#btnPrint,.toast{display:none!important}body{padding:0;background:#fff;color:#000}.view{display:none}#view-order{display:block}.card{border:0;padding:0;break-inside:avoid}.spines{display:none}}
+@media (min-width:640px){.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 id="viewTitle">Escaneja</h1>
+    <span class="count" id="countLbl"></span>
+  </header>
+
+  <!-- ESCANEJA -->
+  <section class="view active" id="view-scan">
+    <div class="stack">
+      <div class="card stack">
+        <div id="reader" hidden></div>
+        <div class="row between">
+          <button class="primary" id="btnCam">Obre la càmera</button>
+          <button id="btnCamStop" hidden>Atura</button>
+          <span class="muted" id="camHint">Apunta al codi de barres de la contraportada.</span>
+        </div>
+        <form id="isbnForm" class="row">
+          <input type="text" inputmode="numeric" id="isbnInput" placeholder="O escriu l'ISBN (978…)" style="flex:1" autocomplete="off">
+          <button type="submit">Cerca</button>
+        </form>
+        <div class="row">
+          <button class="ghost small" id="btnManual">Afegeix a mà (sense ISBN)</button>
+        </div>
+      </div>
+      <div id="lookupState" class="muted" hidden></div>
+      <div class="card" id="newBook" hidden></div>
+    </div>
+  </section>
+
+  <!-- LLIBRES -->
+  <section class="view" id="view-books">
+    <div class="stack">
+      <input type="search" id="searchBooks" placeholder="Cerca per títol, autor o gènere">
+      <div class="row between">
+        <span class="muted" id="pendingLbl"></span>
+        <div class="row">
+          <button class="small" id="btnExport">Exporta JSON</button>
+          <button class="small" id="btnExportCsv">CSV</button>
+          <button class="small" id="btnImport">Importa</button>
+          <input type="file" id="importFile" accept="application/json" hidden>
+        </div>
+      </div>
+      <div class="list" id="bookList"></div>
+    </div>
+  </section>
+
+  <!-- PRESTATGERIA -->
+  <section class="view" id="view-shelves">
+    <div class="stack">
+      <div class="card stack">
+        <h2>Prestatges</h2>
+        <p class="muted">De dalt a baix, amb l'amplada útil en cm. Deixa l'alçada buida: com que els prestatges es poden muntar a l'alçada que vulguis, l'app et dirà a quina alçada muntar cadascun. Posa-hi un valor només si un prestatge té l'alçada fixada.</p>
+        <div id="shelfRows" class="stack"></div>
+        <div class="row">
+          <button id="btnAddShelf">+ Afegeix prestatge</button>
+        </div>
+      </div>
+      <div class="card stack">
+        <h2>Regles d'ordenació</h2>
+        <div class="grid2">
+          <label class="f"><span>1. Alçada</span>
+            <select id="optHeightDir"><option value="desc">Alts primer</option><option value="asc">Baixos primer</option></select></label>
+          <label class="f"><span>3. Alfabètic per</span>
+            <select id="optAlpha"><option value="author">Cognom de l'autor</option><option value="title">Títol</option></select></label>
+        </div>
+        <label class="f"><span>2. Ordre dels gèneres</span></label>
+        <div class="sortlist" id="genreOrder"></div>
+        <div class="row">
+          <input type="text" id="newGenre" placeholder="Nou gènere" style="flex:1">
+          <button id="btnAddGenre">Afegeix</button>
+        </div>
+        <label class="row" style="gap:8px"><input type="checkbox" id="optKeepGroups" checked> Intenta no partir un gènere entre dos prestatges</label>
+        <label class="row" style="gap:8px"><input type="checkbox" id="optHeightBreaks"> Cada classe d'alçada comença en un prestatge nou si hi cap</label>
+        <div class="grid2">
+          <label class="f"><span>Alçada mínima de muntatge (cm)</span><input type="number" id="optMinH" min="5"></label>
+          <label class="f"><span>Pas entre alçades (cm)</span><input type="number" id="optStepH" min="1"></label>
+        </div>
+      </div>
+      <div class="card stack">
+        <h2>Fonts de dades</h2>
+        <label class="f"><span>Clau API de Google Books (opcional)</span><input type="text" id="optGbKey" placeholder="Sense clau també funciona, amb límit diari"></label>
+        <p class="muted">Primer es consulta Open Library, després Google Books. L'alçada i el gruix es proposen si la font els té; si no, tries la classe a mà.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ORDRE -->
+  <section class="view" id="view-order">
+    <div class="stack">
+      <div class="row between">
+        <span class="muted" id="orderSummary"></span>
+        <button class="small" id="btnPrint">Imprimeix / PDF</button>
+      </div>
+      <div id="orderOut"></div>
+    </div>
+  </section>
+</div>
+
+<nav class="tabs">
+  <button data-view="scan" class="active"><svg viewBox="0 0 24 24"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M11 8v8M14 8v8M17 8v8"/></svg>Escaneja</button>
+  <button data-view="books"><svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h3v15M8 19V4h4v15M12 19l3-14 4 1-3 14z"/><path d="M3 20h18"/></svg>Llibres</button>
+  <button data-view="shelves"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18M6 5v7M10 5v7M14 12v7M8 12v7"/></svg>Prestatgeria</button>
+  <button data-view="order"><svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h14M4 18h7M18 9l3 3-3 3"/></svg>Ordre</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<dialog id="editDlg"><div class="wrap stack" id="editBody"></div></dialog>
+
+<script src="html5-qrcode.min.js"></script>
+<script>
+'use strict';
+/* ---------- Model i persistència ---------- */
+const HEIGHTS = [
+  {id:'butxaca', name:'Butxaca',  hint:'< 18 cm',   cm:17.5, maxCm:18, rank:1},
+  {id:'normal',  name:'Normal',   hint:'18–24 cm',  cm:22,   maxCm:24, rank:2},
+  {id:'gran',    name:'Gran',     hint:'24–30 cm',  cm:28,   maxCm:30, rank:3},
+  {id:'revista', name:'Revista / àlbum', hint:'> 30 cm', cm:33, maxCm:36, rank:4},
+];
+const DEFAULT_GENRES = ['Disseny','Dibuix','Il·lustració','Pintura','Escultura','Arquitectura','Fotografia','Art','Còmic','Novel·la','Poesia','Assaig','Text / manual','Infantil','Altres'];
+const GENRE_RULES = [
+  ['Disseny',['disseny','diseño','design','graphic','gràfic','gráfic','tipograf','typograph','branding','user experience','ux ','interface','packaging']],
+  ['Dibuix',['dibuix','dibujo','drawing','sketch','croquis','anatomy for artists','anatomía artística']],
+  ['Il·lustració',['il·lustraci','ilustraci','illustrat']],
+  ['Pintura',['pintura','painting','watercolor','watercolour','acuarela','aquarel','oil paint','óleo','acrylic']],
+  ['Escultura',['escultura','sculpt','cerámica','ceràmica','ceramic']],
+  ['Arquitectura',['arquitectura','architect','interiorismo','interior design','urbanism']],
+  ['Fotografia',['fotograf','photograph']],
+  ['Còmic',['còmic','cómic','comic','graphic novel','novela gráfica','manga','bande dessinée']],
+  ['Infantil',['infantil','juvenile','children','picture book','young adult','juvenil']],
+  ['Poesia',['poesia','poesía','poetry','poems']],
+  ['Novel·la',['novel·la','novela','novel','fiction','ficció','ficción','thriller','mystery','crime','romance','fantasy','science fiction','short stories','relatos','literatura','literature']],
+  ['Text / manual',['textbook','libro de texto','manual','handbook','tutorial','programming','programaci','mathematics','matemàt','matemát','education','educació','educación','how to','guide','guía','reference']],
+  ['Assaig',['essay','ensayo','assaig','philosophy','filosof','history','història','historia','psycholog','psicolog','science','ciència','ciencia','biograph','biograf','memoir','politic','polític','econom','sociolog','religion','self-help','autoayuda']],
+  ['Art',['art','arte','museum','museo','exhibition','exposició','exposición','artists','artistas']],
+];
+const store = {
+  load(){ try{ return JSON.parse(localStorage.getItem('prestatge')||'null') }catch(e){ return null } },
+  save(){ try{ localStorage.setItem('prestatge', JSON.stringify(state)) }catch(e){ toast('No s\'ha pogut desar al navegador') } }
+};
+let state = store.load() || {
+  books: [],
+  shelves: [{name:'Prestatge de dalt', width:95, maxHeight:''},{name:'Prestatge de baix', width:95, maxHeight:''}],
+  genres: DEFAULT_GENRES.slice(),
+  opts: {heightDir:'desc', alpha:'author', keepGroups:true, heightBreaks:false, gbKey:'', minShelfH:20, stepShelfH:5}
+};
+state.opts = Object.assign({heightDir:'desc', alpha:'author', keepGroups:true, heightBreaks:false, gbKey:'', minShelfH:20, stepShelfH:5}, state.opts||{});
+if(!state.genres||!state.genres.length) state.genres = DEFAULT_GENRES.slice();
+
+const $ = s=>document.querySelector(s);
+const uid = ()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let toastT; function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ---------- Utilitats de llibre ---------- */
+function cleanIsbn(s){ return String(s||'').replace(/[^0-9Xx]/g,'').toUpperCase(); }
+function isValidIsbn(s){
+  s=cleanIsbn(s);
+  if(s.length===13){ let sum=0; for(let i=0;i<12;i++) sum+= (+s[i])*(i%2?3:1); return (10-sum%10)%10 === +s[12]; }
+  if(s.length===10){ let sum=0; for(let i=0;i<9;i++) sum+=(+s[i])*(10-i); const c=s[9]==='X'?10:+s[9]; return (sum+c)%11===0; }
+  return false;
+}
+function isbn10to13(s){ if(s.length!==10) return s; const core='978'+s.slice(0,9); let sum=0; for(let i=0;i<12;i++) sum+=(+core[i])*(i%2?3:1); return core+((10-sum%10)%10); }
+function heightClassFromCm(cm){ if(!cm) return ''; if(cm<18) return 'butxaca'; if(cm<24) return 'normal'; if(cm<30) return 'gran'; return 'revista'; }
+function guessGenre(cats){
+  const txt=(cats||[]).join(' | ').toLowerCase();
+  if(!txt) return '';
+  for(const [g,keys] of GENRE_RULES){ if(keys.some(k=>txt.includes(k))) return g; }
+  return '';
+}
+function estimateThickness(b){
+  if(b.thicknessMm) return b.thicknessMm;
+  if(b.heightClass==='revista') return 8;
+  const p=+b.pages||0;
+  if(!p) return 25;
+  const hard=/hard|tapa dura|cartoné/i.test(b.format||'');
+  return Math.round(p*0.065 + (hard?9:4));
+}
+function heightCm(b){ if(b.heightCm) return +b.heightCm; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.cm:22; }
+function neededCm(b){ if(b.heightCm) return +b.heightCm+1; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.maxCm:24; }
+function recommendedShelfH(books){ if(!books.length) return 0; const need=Math.max(...books.map(neededCm)); const min=+state.opts.minShelfH||20, step=+state.opts.stepShelfH||5; return Math.max(min, Math.ceil((need-min)/step)*step+min); }
+const ARTICLES=/^(el|la|els|les|l'|un|una|uns|unes|the|a|an|los|las|le|les|der|die|das)\s+/i;
+function titleKey(t){ return String(t||'').replace(/^[¡¿"'«(]+/,'').replace(ARTICLES,'').replace(/^l'/i,'').trim(); }
+function authorKey(b){
+  const a=(b.authors&&b.authors[0])||'';
+  if(!a) return '~';
+  if(a.includes(',')) return a.split(',')[0].trim();
+  const parts=a.trim().split(/\s+/);
+  const particles=new Set(['de','del','la','van','von','di','da','dos','das','le','du','der','den','of']);
+  let i=parts.length-1; while(i>0 && particles.has(parts[i-1].toLowerCase())) i--;
+  return parts.slice(i).join(' ');
+}
+const coll=new Intl.Collator('ca',{sensitivity:'base',ignorePunctuation:true});
+function isPending(b){ return !b.heightClass || !b.genre; }
+
+/* ---------- Ordenació ---------- */
+function sortedBooks(){
+  const rankH=b=>{ const h=HEIGHTS.find(x=>x.id===b.heightClass); return h?h.rank:2; };
+  const rankG=b=>{ const i=state.genres.indexOf(b.genre||'Altres'); return i<0?state.genres.length:i; };
+  const dir=state.opts.heightDir==='desc'?-1:1;
+  return state.books.slice().sort((a,b)=>{
+    const h=(rankH(a)-rankH(b))*dir; if(h) return h;
+    const g=rankG(a)-rankG(b); if(g) return g;
+    if(state.opts.alpha==='author'){
+      const c=coll.compare(authorKey(a),authorKey(b)); if(c) return c;
+    }
+    return coll.compare(titleKey(a.title),titleKey(b.title));
+  });
+}
+function placeBooks(){
+  const books=sortedBooks();
+  const shelves=state.shelves.map(s=>({name:s.name, width:+s.width||0, widthMm:(+s.width||0)*10, maxHeight:+s.maxHeight||0, used:0, books:[]}));
+  const noFit=[], overflow=[];
+  if(!shelves.length){ return {shelves, noFit:books, overflow}; }
+  const groupKey=b=>(b.heightClass||'normal')+'|'+(b.genre||'Altres');
+  const groupTotal=new Map();
+  for(const b of books){ const k=groupKey(b); groupTotal.set(k,(groupTotal.get(k)||0)+estimateThickness(b)); }
+  const fitsHeight=(s,b)=>!s.maxHeight || heightCm(b)<=s.maxHeight;
+  let si=0, prevKey=null, prevH=null;
+  for(const b of books){
+    const t=estimateThickness(b), k=groupKey(b);
+    const newGroup=k!==prevKey, newHeight=(b.heightClass||'normal')!==prevH;
+    prevKey=k; prevH=b.heightClass||'normal';
+    // busca el primer prestatge (des de l'actual) on el llibre càpiga en alçada
+    let target=-1;
+    for(let i=si;i<shelves.length;i++){ if(fitsHeight(shelves[i],b)){ target=i; break; } }
+    if(target<0){ noFit.push(b); continue; }
+    si=target;
+    let s=shelves[si];
+    const remaining=s.widthMm-s.used;
+    const wantBreak = s.books.length>0 && (
+      (state.opts.heightBreaks && newHeight) ||
+      (state.opts.keepGroups && newGroup && groupTotal.get(k)>remaining && groupTotal.get(k)<= (shelves[si+1]? shelves[si+1].widthMm:0))
+    );
+    if(wantBreak && si+1<shelves.length && fitsHeight(shelves[si+1],b)){ si++; s=shelves[si]; }
+    // si no hi cap en amplada, passa al següent que accepti l'alçada
+    let placed=false;
+    while(true){
+      if(s.used+t<=s.widthMm || s.books.length===0 && t<=s.widthMm){ placed=true; break; }
+      let nxt=-1; for(let i=si+1;i<shelves.length;i++){ if(fitsHeight(shelves[i],b)){ nxt=i; break; } }
+      if(nxt<0) break;
+      si=nxt; s=shelves[si];
+    }
+    if(!placed){ overflow.push(b); continue; }
+    s.books.push(b); s.used+=t;
+  }
+  return {shelves, noFit, overflow};
+}
+
+/* ---------- Consultes ---------- */
+async function fetchJson(url){ const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+async function lookupOpenLibrary(isbn){
+  const out={};
+  try{
+    const s=await fetchJson('https://openlibrary.org/search.json?isbn='+isbn+'&fields=title,author_name,subject,publisher,first_publish_year,number_of_pages_median,cover_i&limit=1');
+    const d=s.docs&&s.docs[0];
+    if(d){ out.title=d.title; out.authors=d.author_name||[]; out.categories=(d.subject||[]).slice(0,12); out.publisher=(d.publisher||[])[0]; out.year=d.first_publish_year; out.pages=d.number_of_pages_median; out.source='Open Library'; }
+  }catch(e){}
+  try{
+    const e=await fetchJson('https://openlibrary.org/isbn/'+isbn+'.json');
+    if(e){
+      out.title=out.title||e.title; out.pages=e.number_of_pages||out.pages; out.format=e.physical_format||'';
+      out.publisher=out.publisher||(e.publishers||[])[0]; out.year=out.year||parseInt(e.publish_date)||'';
+      if(e.physical_dimensions){ const m=String(e.physical_dimensions).match(/([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*(inches|in|cm|centimeters)/i);
+        if(m){ const k=/in/i.test(m[4])?2.54:1; const dims=[+m[1]*k,+m[2]*k,+m[3]*k].sort((a,b)=>b-a); out.heightCm=Math.round(dims[0]*10)/10; out.thicknessMm=Math.round(dims[2]*10); } }
+      if(!out.source) out.source='Open Library';
+    }
+  }catch(e){}
+  return out.title?out:null;
+}
+async function lookupGoogle(isbn){
+  const key=state.opts.gbKey?'&key='+encodeURIComponent(state.opts.gbKey):'';
+  const s=await fetchJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+isbn+key);
+  const it=s.items&&s.items[0]; if(!it) return null;
+  let v=it.volumeInfo||{};
+  try{ const full=await fetchJson('https://www.googleapis.com/books/v1/volumes/'+it.id+'?'+key.slice(1)); if(full.volumeInfo) v=Object.assign({},v,full.volumeInfo); }catch(e){}
+  const out={title:v.title+(v.subtitle?': '+v.subtitle:''), authors:v.authors||[], categories:v.categories||[], publisher:v.publisher, year:parseInt(v.publishedDate)||'', pages:v.pageCount, source:'Google Books'};
+  if(v.dimensions){ const cm=x=>parseFloat(String(x||'').replace(',','.'))||0; if(v.dimensions.height) out.heightCm=cm(v.dimensions.height); if(v.dimensions.thickness) out.thicknessMm=Math.round(cm(v.dimensions.thickness)*10); }
+  return out;
+}
+async function lookup(isbn){
+  const st=$('#lookupState'); st.hidden=false; st.textContent='Cercant '+isbn+' a Open Library…';
+  let ol=null, gb=null;
+  try{ ol=await lookupOpenLibrary(isbn) }catch(e){}
+  st.textContent = ol ? 'Trobat a Open Library. Completant amb Google Books…' : 'No és a Open Library. Provant Google Books…';
+  try{ gb=await lookupGoogle(isbn) }catch(e){ if(/429/.test(e.message)) toast('Google Books ha superat el límit diari sense clau'); }
+  st.hidden=true;
+  if(!ol && !gb) return null;
+  const base=ol||gb, extra=(ol?gb:null)||{};
+  const merged=Object.assign({}, base);
+  for(const k of ['heightCm','thicknessMm','pages','categories','publisher','year','authors']){ if(!merged[k]||(Array.isArray(merged[k])&&!merged[k].length)) merged[k]=extra[k]; }
+  if(extra.categories&&extra.categories.length) merged.categories=(merged.categories||[]).concat(extra.categories);
+  merged.source=[ol&&'Open Library',gb&&'Google Books'].filter(Boolean).join(' + ');
+  return merged;
+}
+
+/* ---------- Vistes ---------- */
+const TITLES={scan:'Escaneja',books:'Llibres',shelves:'Prestatgeria',order:'Ordre'};
+function showView(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+v));
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  $('#viewTitle').textContent=TITLES[v];
+  if(v==='books') renderBooks();
+  if(v==='shelves') renderShelves();
+  if(v==='order') renderOrder();
+  if(v!=='scan' && scanner.running) scanner.stop();
+  try{ localStorage.setItem('prestatge.view',v) }catch(e){}
+}
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+function updateCount(){ const n=state.books.length, p=state.books.filter(isPending).length; $('#countLbl').textContent=n+' llibre'+(n===1?'':'s')+(p?' · '+p+' pendent'+(p===1?'':'s'):''); }
+
+/* --- Escàner --- */
+const scanner={ h5:null, running:false, lastCode:'', lastAt:0,
+  async start(){
+    if(!window.Html5Qrcode){ toast('No s\'ha carregat la llibreria d\'escaneig'); return; }
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('Aquest navegador no dona accés a la càmera (cal https).'); return; }
+    $('#reader').hidden=false;
+    this.h5=this.h5||new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A],experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
+    try{
+      await this.h5.start({facingMode:'environment'},{fps:10,qrbox:(w,h)=>({width:Math.min(300,Math.round(w*.85)),height:Math.round(Math.min(300,Math.round(w*.85))*.45)}),aspectRatio:1.333},t=>this.onCode(t),()=>{});
+      this.running=true; $('#btnCam').hidden=true; $('#btnCamStop').hidden=false; $('#camHint').textContent='Escanejant… apunta al codi de barres.';
+    }catch(e){ $('#reader').hidden=true; toast('No s\'ha pogut obrir la càmera: '+(e&&e.message||e)); }
+  },
+  async stop(){ if(this.h5&&this.running){ try{ await this.h5.stop() }catch(e){} } this.running=false; $('#reader').hidden=true; $('#btnCam').hidden=false; $('#btnCamStop').hidden=true; $('#camHint').textContent='Apunta al codi de barres de la contraportada.'; },
+  pause(){ if(this.h5&&this.running){ try{ this.h5.pause(true) }catch(e){} } },
+  resume(){ if(this.h5&&this.running){ try{ this.h5.resume() }catch(e){} } },
+  onCode(text){
+    const code=cleanIsbn(text); const now=Date.now();
+    if(code===this.lastCode && now-this.lastAt<4000) return;
+    this.lastCode=code; this.lastAt=now;
+    if(!/^(978|979)/.test(code)||!isValidIsbn(code)){ toast('Codi llegit però no és un ISBN: '+code); return; }
+    if(navigator.vibrate) navigator.vibrate(60);
+    handleIsbn(code);
+  }
+};
+$('#btnCam').addEventListener('click',()=>scanner.start());
+$('#btnCamStop').addEventListener('click',()=>scanner.stop());
+$('#isbnForm').addEventListener('submit',e=>{ e.preventDefault(); const v=cleanIsbn($('#isbnInput').value); if(!isValidIsbn(v)){ toast('ISBN no vàlid'); return; } $('#isbnInput').value=''; handleIsbn(v.length===10?isbn10to13(v):v); });
+$('#btnManual').addEventListener('click',()=>openNewBook({title:'',authors:[],categories:[],source:'manual'},''));
+
+async function handleIsbn(isbn){
+  const dup=state.books.find(b=>b.isbn===isbn);
+  if(dup){ toast('Ja el tens: '+dup.title); return; }
+  scanner.pause();
+  const data=await lookup(isbn);
+  if(!data){ toast('No s\'ha trobat cap fitxa. Omple-la a mà.'); openNewBook({title:'',authors:[],categories:[],source:'cap font'},isbn); return; }
+  openNewBook(data,isbn);
+}
+function openNewBook(d,isbn){
+  const draft={ id:uid(), isbn, title:d.title||'', authors:d.authors||[], publisher:d.publisher||'', year:d.year||'', pages:d.pages||'', format:d.format||'',
+    heightCm:d.heightCm||'', thicknessMm:d.thicknessMm||'', heightClass:heightClassFromCm(d.heightCm), genre:guessGenre(d.categories), categories:d.categories||[], source:d.source||'', notes:'', addedAt:new Date().toISOString() };
+  const box=$('#newBook'); box.hidden=false;
+  box.innerHTML=bookForm(draft,true);
+  box.scrollIntoView({behavior:'smooth',block:'start'});
+  wireForm(box,draft,()=>{ state.books.push(draft); store.save(); updateCount(); box.hidden=true; box.innerHTML=''; toast('Desat: '+draft.title); scanner.resume(); },()=>{ box.hidden=true; box.innerHTML=''; scanner.resume(); });
+}
+function bookForm(b,isNew){
+  const cover=b.isbn?`<img src="https://covers.openlibrary.org/b/isbn/${esc(b.isbn)}-M.jpg" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nocover',textContent:'Sense coberta'}))">`:`<div class="nocover">Sense coberta</div>`;
+  const opts=state.genres.map(g=>`<option ${g===b.genre?'selected':''}>${esc(g)}</option>`).join('');
+  return `
+  <div class="stack">
+    <div class="bookcard">
+      ${cover}
+      <div class="stack" style="gap:6px">
+        <label class="f"><span>Títol</span><input type="text" name="title" value="${esc(b.title)}" required></label>
+        <label class="f"><span>Autor/a (cognom, nom o nom cognom; separa amb ;)</span><input type="text" name="authors" value="${esc((b.authors||[]).join('; '))}"></label>
+        <div class="muted">${b.isbn?'ISBN '+esc(b.isbn)+' · ':''}${b.source?'font: '+esc(b.source):''}${b.categories&&b.categories.length?' · matèries: '+esc(b.categories.slice(0,4).join(', ')):''}</div>
+      </div>
+    </div>
+    <div>
+      <label class="f"><span>1 · Alçada ${b.heightCm?'(la font diu '+esc(b.heightCm)+' cm)':''}</span></label>
+      <div class="seg" data-field="heightClass">${HEIGHTS.map(h=>`<button type="button" data-v="${h.id}" class="${h.id===b.heightClass?'on':''}">${h.name}<small>${h.hint}</small></button>`).join('')}</div>
+    </div>
+    <div class="grid2">
+      <label class="f"><span>2 · Gènere</span><select name="genre"><option value="">— tria —</option>${opts}</select></label>
+      <label class="f"><span>Gruix del llom (mm)</span><input type="number" name="thicknessMm" min="1" max="200" step="1" value="${esc(b.thicknessMm)}" placeholder="≈ ${estimateThickness(b)}"></label>
+    </div>
+    <details><summary class="muted">Més camps</summary>
+      <div class="grid2" style="margin-top:8px">
+        <label class="f"><span>Alçada exacta (cm)</span><input type="number" name="heightCm" step="0.1" value="${esc(b.heightCm)}"></label>
+        <label class="f"><span>Pàgines</span><input type="number" name="pages" value="${esc(b.pages)}"></label>
+        <label class="f"><span>Editorial</span><input type="text" name="publisher" value="${esc(b.publisher)}"></label>
+        <label class="f"><span>Any</span><input type="number" name="year" value="${esc(b.year)}"></label>
+      </div>
+      <label class="f" style="margin-top:8px"><span>Notes</span><input type="text" name="notes" value="${esc(b.notes)}"></label>
+    </details>
+    <div class="row between">
+      <button type="button" data-act="cancel" class="ghost">${isNew?'Descarta':'Tanca'}</button>
+      <div class="row">${isNew?'':'<button type="button" data-act="delete" class="danger">Elimina</button>'}<button type="button" data-act="save" class="primary">${isNew?'Desa el llibre':'Desa canvis'}</button></div>
+    </div>
+  </div>`;
+}
+function wireForm(root,b,onSave,onCancel,onDelete){
+  root.querySelectorAll('.seg[data-field] button').forEach(btn=>btn.addEventListener('click',()=>{ root.querySelectorAll('.seg[data-field] button').forEach(x=>x.classList.remove('on')); btn.classList.add('on'); b.heightClass=btn.dataset.v; }));
+  root.querySelector('[data-act=save]').addEventListener('click',()=>{
+    const g=n=>root.querySelector(`[name=${n}]`).value.trim();
+    b.title=g('title'); if(!b.title){ toast('Cal un títol'); return; }
+    b.authors=g('authors').split(';').map(s=>s.trim()).filter(Boolean);
+    b.genre=g('genre'); b.thicknessMm=+g('thicknessMm')||''; b.heightCm=+g('heightCm')||''; b.pages=+g('pages')||''; b.publisher=g('publisher'); b.year=+g('year')||''; b.notes=g('notes');
+    if(!b.heightClass && b.heightCm) b.heightClass=heightClassFromCm(b.heightCm);
+    if(!b.heightClass||!b.genre) toast('Desat com a pendent: falta '+(!b.heightClass?'alçada':'gènere'));
+    onSave();
+  });
+  root.querySelector('[data-act=cancel]').addEventListener('click',onCancel);
+  const del=root.querySelector('[data-act=delete]'); if(del) del.addEventListener('click',()=>{ if(confirm('Eliminar «'+b.title+'»?')) onDelete(); });
+}
+
+/* --- Llibres --- */
+function renderBooks(){
+  const q=$('#searchBooks').value.trim().toLowerCase();
+  const list=$('#bookList'); list.innerHTML='';
+  const books=sortedBooks().filter(b=>!q||[b.title,(b.authors||[]).join(' '),b.genre,b.isbn].join(' ').toLowerCase().includes(q));
+  const p=state.books.filter(isPending).length;
+  $('#pendingLbl').textContent=p?p+' pendent'+(p>1?'s':'')+' de classificar':'Tot classificat';
+  if(!books.length){ list.innerHTML='<p class="muted">'+(state.books.length?'Cap coincidència.':'Encara no hi ha llibres. Escaneja\'n el primer.')+'</p>'; return; }
+  for(const b of books){
+    const h=HEIGHTS.find(x=>x.id===b.heightClass);
+    const el=document.createElement('div'); el.className='item'+(isPending(b)?' pending':'');
+    el.innerHTML=`<div><div class="t">${esc(b.title)}</div><div class="s">${esc((b.authors||[]).join('; ')||'—')} <span class="pill ${h?'h':'warn'}">${h?h.name:'sense alçada'}</span> <span class="pill ${b.genre?'':'warn'}">${esc(b.genre||'sense gènere')}</span> <span class="muted">${estimateThickness(b)} mm</span></div></div><button class="small">Edita</button>`;
+    el.querySelector('button').addEventListener('click',()=>editBook(b));
+    list.appendChild(el);
+  }
+}
+$('#searchBooks').addEventListener('input',renderBooks);
+function editBook(b){
+  const dlg=$('#editDlg'), body=$('#editBody'); const copy=JSON.parse(JSON.stringify(b));
+  body.innerHTML=bookForm(copy,false);
+  wireForm(body,copy,()=>{ Object.assign(b,copy); store.save(); dlg.close(); renderBooks(); updateCount(); toast('Canvis desats'); },()=>dlg.close(),()=>{ state.books=state.books.filter(x=>x.id!==b.id); store.save(); dlg.close(); renderBooks(); updateCount(); });
+  dlg.showModal();
+}
+function download(name,text,type){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+$('#btnExport').addEventListener('click',()=>download('prestatge-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(state,null,2),'application/json'));
+$('#btnExportCsv').addEventListener('click',()=>{
+  const {shelves}=placeBooks(); const pos=new Map(); shelves.forEach(s=>s.books.forEach((b,i)=>pos.set(b.id,[s.name,i+1])));
+  const rows=[['prestatge','posicio','isbn','titol','autors','alcada_classe','alcada_cm','genere','gruix_mm','pagines','editorial','any','notes']];
+  for(const b of sortedBooks()){ const p=pos.get(b.id)||['',''];
+    rows.push([p[0],p[1],b.isbn,b.title,(b.authors||[]).join('; '),b.heightClass,b.heightCm,b.genre,estimateThickness(b),b.pages,b.publisher,b.year,b.notes]); }
+  download('prestatge.csv','﻿'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n'),'text/csv');
+});
+$('#btnImport').addEventListener('click',()=>$('#importFile').click());
+$('#importFile').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ const d=JSON.parse(await f.text()); if(!Array.isArray(d.books)) throw 0;
+    const mode = state.books.length ? confirm('Vols AFEGIR els llibres del fitxer als que ja tens? (Cancel·la per substituir-ho tot)') : false;
+    if(mode){ const have=new Set(state.books.map(b=>b.isbn).filter(Boolean)); let n=0; for(const b of d.books){ if(b.isbn&&have.has(b.isbn)) continue; b.id=b.id||uid(); state.books.push(b); n++; } toast('Afegits '+n+' llibres'); }
+    else { state=Object.assign(state,d); toast('Importat: '+state.books.length+' llibres'); }
+    store.save(); renderBooks(); updateCount(); e.target.value='';
+  }catch(err){ toast('El fitxer no és una exportació vàlida'); }
+});
+
+/* --- Prestatgeria --- */
+function renderShelves(){
+  const box=$('#shelfRows'); box.innerHTML='';
+  state.shelves.forEach((s,i)=>{
+    const row=document.createElement('div'); row.className='shelfrow';
+    row.innerHTML=`<label class="f"><span>Nom</span><input type="text" value="${esc(s.name)}" data-k="name"></label>
+      <label class="f"><span>Ample cm</span><input type="number" min="1" value="${esc(s.width)}" data-k="width"></label>
+      <label class="f"><span>Alçada cm</span><input type="number" min="1" value="${esc(s.maxHeight)}" data-k="maxHeight" placeholder="auto"></label>
+      <div class="row" style="gap:4px"><button class="small" title="Puja" ${i===0?'disabled':''} data-mv="-1">↑</button><button class="small" title="Baixa" ${i===state.shelves.length-1?'disabled':''} data-mv="1">↓</button><button class="small danger" data-del>×</button></div>`;
+    row.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{ s[inp.dataset.k]=inp.dataset.k==='name'?inp.value:(inp.value===''?'':+inp.value); store.save(); }));
+    row.querySelectorAll('[data-mv]').forEach(b=>b.addEventListener('click',()=>{ const j=i+ +b.dataset.mv; [state.shelves[i],state.shelves[j]]=[state.shelves[j],state.shelves[i]]; store.save(); renderShelves(); }));
+    row.querySelector('[data-del]').addEventListener('click',()=>{ state.shelves.splice(i,1); store.save(); renderShelves(); });
+    box.appendChild(row);
+  });
+  $('#optHeightDir').value=state.opts.heightDir; $('#optAlpha').value=state.opts.alpha; $('#optKeepGroups').checked=!!state.opts.keepGroups; $('#optHeightBreaks').checked=!!state.opts.heightBreaks; $('#optGbKey').value=state.opts.gbKey||''; $('#optMinH').value=state.opts.minShelfH; $('#optStepH').value=state.opts.stepShelfH;
+  const go=$('#genreOrder'); go.innerHTML='';
+  state.genres.forEach((g,i)=>{
+    const n=state.books.filter(b=>b.genre===g).length;
+    const el=document.createElement('div'); el.className='item';
+    el.innerHTML=`<div><span class="t">${i+1}. ${esc(g)}</span> <span class="muted">${n} llibre${n===1?'':'s'}</span></div><div class="row" style="gap:4px"><button class="small" ${i===0?'disabled':''} data-mv="-1">↑</button><button class="small" ${i===state.genres.length-1?'disabled':''} data-mv="1">↓</button><button class="small danger" data-del ${n?'disabled title="Té llibres assignats"':''}>×</button></div>`;
+    el.querySelectorAll('[data-mv]').forEach(b=>b.addEventListener('click',()=>{ const j=i+ +b.dataset.mv; [state.genres[i],state.genres[j]]=[state.genres[j],state.genres[i]]; store.save(); renderShelves(); }));
+    el.querySelector('[data-del]').addEventListener('click',()=>{ state.genres.splice(i,1); store.save(); renderShelves(); });
+    go.appendChild(el);
+  });
+}
+$('#btnAddShelf').addEventListener('click',()=>{ const last=state.shelves[state.shelves.length-1]; state.shelves.push({name:'Prestatge '+(state.shelves.length+1),width:last?last.width:80,maxHeight:''}); store.save(); renderShelves(); });
+$('#btnAddGenre').addEventListener('click',()=>{ const v=$('#newGenre').value.trim(); if(!v) return; if(state.genres.some(g=>coll.compare(g,v)===0)){ toast('Ja existeix'); return; } state.genres.push(v); $('#newGenre').value=''; store.save(); renderShelves(); });
+for(const [id,k,prop] of [['#optHeightDir','heightDir','value'],['#optAlpha','alpha','value'],['#optKeepGroups','keepGroups','checked'],['#optHeightBreaks','heightBreaks','checked'],['#optGbKey','gbKey','value'],['#optMinH','minShelfH','value'],['#optStepH','stepShelfH','value']]){
+  $(id).addEventListener('change',e=>{ state.opts[k]=e.target[prop]; store.save(); });
+}
+
+/* --- Ordre --- */
+function genreColor(g){ let h=0; for(const c of (g||'')) h=(h*31+c.charCodeAt(0))>>>0; const i=state.genres.indexOf(g); const hue=i>=0?Math.round(i*360/Math.max(6,state.genres.length)):h%360; return `hsl(${hue} 38% 42%)`; }
+function renderOrder(){
+  const out=$('#orderOut'); out.innerHTML='';
+  if(!state.books.length){ out.innerHTML='<p class="muted">Sense llibres. Escaneja\'n uns quants i torna.</p>'; $('#orderSummary').textContent=''; return; }
+  const {shelves,noFit,overflow}=placeBooks();
+  const pending=state.books.filter(isPending).length;
+  const totalMm=state.books.reduce((a,b)=>a+estimateThickness(b),0);
+  const cap=shelves.reduce((a,s)=>a+s.width,0);
+  $('#orderSummary').textContent=`${state.books.length} llibres · ${(totalMm/10).toFixed(0)} cm de llom · ${cap} cm de prestatge`+(totalMm/10>cap?' · NO HI CAP TOT':'')+(pending?` · ${pending} pendents (col·locats com a normal/Altres)`:'');
+  const usedGenres=new Set();
+  shelves.forEach((s,si)=>{
+    const div=document.createElement('div'); div.className='shelfblock card';
+    const pct=s.widthMm?Math.min(100,Math.round(s.used/s.widthMm*100)):0;
+    const over=s.used>s.widthMm;
+    let html=`<h3><span>${esc(s.name)}</span><span class="muted" style="font-variant-numeric:tabular-nums">${(s.used/10).toFixed(0)} / ${s.width} cm${s.maxHeight?' · màx '+s.maxHeight+' cm':''}</span></h3>
+      <div class="fill"><i class="${over?'over':''}" style="width:${pct}%"></i></div>`;
+    if(s.books.length && !s.maxHeight){ const rec=recommendedShelfH(s.books); const tall=s.books.reduce((m,b)=>neededCm(b)>neededCm(m)?b:m,s.books[0]);
+      html+=`<p class="rec"><b>Munta'l a ${rec} cm d'alçada.</b> <span class="muted">El llibre més alt és «${esc(tall.title)}» (${tall.heightCm?tall.heightCm+' cm':HEIGHTS.find(h=>h.id===(tall.heightClass||'normal')).name.toLowerCase()+', fins a '+neededCm(tall)+' cm'}).</span></p>`; }
+    if(!s.books.length){ html+='<p class="muted">Buit.</p>'; }
+    else{
+      const maxH=Math.max(...s.books.map(heightCm));
+      const scale = s.books.length>60 ? 0.35 : 0.6; // px per mm
+      html+='<div class="spines">'+s.books.map(b=>{ usedGenres.add(b.genre||'Altres'); const w=Math.max(3,Math.round(estimateThickness(b)*scale)); const h=Math.round(heightCm(b)/Math.max(maxH,30)*110); return `<div class="spine" style="width:${w}px;height:${h}px;background:${genreColor(b.genre||'Altres')}" title="${esc(b.title)}">${w>=11?'<span>'+esc(b.title.slice(0,28))+'</span>':''}</div>`; }).join('')+'</div>';
+      html+='<ol class="order">';
+      let prev=null;
+      s.books.forEach(b=>{ const k=(b.heightClass||'normal')+'|'+(b.genre||'Altres'); if(k!==prev){ const h=HEIGHTS.find(x=>x.id===(b.heightClass||'normal')); html+=`</ol><div class="grouphead">${h.name} · ${esc(b.genre||'Altres')}</div><ol class="order" style="counter-reset:pos ${s.books.indexOf(b)}">`; prev=k; }
+        html+=`<li><div>${state.opts.alpha==='author'&&(b.authors||[]).length?'<b>'+esc(authorKey(b))+'</b> · ':''}${esc(b.title)}${isPending(b)?' <span class="pill warn">pendent</span>':''}<div class="g">${esc((b.authors||[]).join('; '))}${b.thicknessMm?'':' · gruix estimat '+estimateThickness(b)+' mm'}</div></div></li>`; });
+      html+='</ol>';
+    }
+    div.innerHTML=html; out.appendChild(div);
+  });
+  if(overflow.length){ const mm=overflow.reduce((a,b)=>a+estimateThickness(b),0); const d=document.createElement('div'); d.className='card'; d.innerHTML=`<h3>No hi caben per amplada</h3><p class="muted">Falten uns ${(mm/10).toFixed(0)} cm de prestatge. Aquests llibres queden fora (treu-ne, o afegeix un prestatge):</p><ol class="order">`+overflow.map(b=>'<li><div>'+esc(b.title)+'<div class="g">'+esc((b.authors||[]).join('; '))+' · '+estimateThickness(b)+' mm</div></div></li>').join('')+'</ol>'; out.appendChild(d); }
+  if(noFit.length){ const d=document.createElement('div'); d.className='card'; d.innerHTML='<h3>No hi caben per alçada</h3><p class="muted">Cap prestatge té prou alçada lliure per a aquests llibres:</p><ul>'+noFit.map(b=>'<li>'+esc(b.title)+' ('+heightCm(b)+' cm)</li>').join('')+'</ul>'; out.appendChild(d); }
+  const lg=document.createElement('div'); lg.className='legend'; lg.innerHTML=[...usedGenres].map(g=>`<span class="pill"><i style="background:${genreColor(g)}"></i>${esc(g)}</span>`).join(''); out.appendChild(lg);
+}
+$('#btnPrint').addEventListener('click',()=>window.print());
+
+/* ---------- Inici ---------- */
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+updateCount();
+let v0='scan'; try{ v0=localStorage.getItem('prestatge.view')||'scan' }catch(e){}
+showView(v0);
+</script>
+</body>
+</html>
