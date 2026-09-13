@@ -30,7 +30,7 @@
   --shelf:#7a5c40; --shelf-dark:#4a3627; color-scheme:dark;}}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+body{background:var(--paper);color:var(--ink);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
 h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.01em;text-wrap:balance;margin:0}
 h1{font-size:26px} h2{font-size:20px} h3{font-size:17px}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -123,10 +123,8 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .wrap{padding:16px}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
-@media print{nav.jump,#sec-add,#sec-books,#sec-ai,#settings,#btnPrint,.toast{display:none!important}body{padding:0;background:#fff;color:#000}.card{border:0;padding:0;break-inside:avoid}.spines{display:none}}
-nav.jump{position:sticky;top:0;z-index:10;display:flex;gap:6px;background:var(--paper);padding:6px 0 10px;margin-bottom:6px}
-nav.jump a{flex:1;text-align:center;padding:7px 4px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);text-decoration:none;font-size:13px;font-weight:500}
-section{scroll-margin-top:56px;margin-bottom:28px}
+@media print{nav.tabs,#sec-add,#sec-books,#sec-ai,#settings,#btnPrint,.toast{display:none!important}body{padding:0;background:#fff;color:#000}.card{border:0;padding:0;break-inside:avoid}.spines{display:none}}
+section{scroll-margin-top:12px;margin-bottom:28px}
 #settings summary{padding:2px 0}
 @media (min-width:640px){.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}}
 </style>
@@ -137,9 +135,6 @@ section{scroll-margin-top:56px;margin-bottom:28px}
     <h1>Prestatge</h1>
     <span class="count" id="countLbl"></span>
   </header>
-  <nav class="jump">
-    <a href="#sec-add">Afegeix</a><a href="#sec-shelf">Prestatgeria</a><a href="#sec-books">Llibres</a><a href="#sec-ai">Assistent</a>
-  </nav>
 
   <!-- AFEGEIX -->
   <section id="sec-add" class="stack">
@@ -253,6 +248,13 @@ section{scroll-margin-top:56px;margin-bottom:28px}
     <div class="row between" id="aiFooter"><span class="muted" id="aiUsage"></span><button class="ghost small" id="aiClear">Nova conversa</button></div>
   </section>
 </div>
+
+<nav class="tabs">
+  <button data-go="sec-add" class="active"><svg viewBox="0 0 24 24"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M11 8v8M14 8v8M17 8v8"/></svg>Afegeix</button>
+  <button data-go="sec-shelf"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18M6 5v7M10 5v7M14 12v7M8 12v7"/></svg>Prestatgeria</button>
+  <button data-go="sec-books"><svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h3v15M8 19V4h4v15M12 19l3-14 4 1-3 14z"/><path d="M3 20h18"/></svg>Llibres</button>
+  <button data-go="sec-ai"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M9 9h7M9 12h4"/></svg>Assistent</button>
+</nav>
 
 <div class="toast" id="toast"></div>
 
@@ -477,6 +479,10 @@ async function lookup(isbn){
 // Tot és en una sola pàgina: showView només hi desplaça.
 const SECTIONS={scan:'sec-add',add:'sec-add',books:'sec-books',shelves:'sec-shelf',order:'sec-shelf',ai:'sec-ai'};
 function showView(v){ const el=document.getElementById(SECTIONS[v]||v); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.go)));
+// El botó actiu del menú segueix la secció visible
+const secObs=new IntersectionObserver(entries=>{ const vis=entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0]; if(!vis) return; document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.go===vis.target.id)); },{rootMargin:'-20% 0px -55% 0px',threshold:[0,0.2,0.5,1]});
+document.querySelectorAll('section[id^=sec-]').forEach(s=>secObs.observe(s));
 function renderAll(){ updateCount(); renderBooks(); renderShelves(); renderOrder(); renderAi(); }
 function updateCount(){ const n=state.books.length, p=state.books.filter(isPending).length; $('#countLbl').textContent=n+' llibre'+(n===1?'':'s')+(p?' · '+p+' pendent'+(p===1?'':'s'):''); }
 
