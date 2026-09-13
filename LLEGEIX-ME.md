@@ -1,6 +1,6 @@
 # Prestatge
 
-App web d'un sol fitxer per catalogar els llibres escanejant l'ISBN i saber en quin ordre i a quin prestatge van, segons tres regles: alçada → gènere → alfabètic.
+App web d'un sol fitxer per catalogar els llibres escanejant l'ISBN i saber en quin ordre i a quin prestatge van, segons tres regles: mida (gran / petit) → gènere → alfabètic. L'app és a https://gerarnedo.github.io/prestatge/ i s'actualitza sola quan es fa push a GitHub.
 
 ## Posar-la en marxa
 
@@ -16,7 +16,8 @@ Al Mac també funciona a `https://localhost:8443/` (sense càmera de mòbil, per
 
 ## Com funciona
 
-- **Escaneja**: llegeix el codi de barres (EAN-13 = ISBN). Consulta Open Library i després Google Books. Et proposa gènere i classe d'alçada si la font en té dades; tu confirmes la classe d'alçada amb un botó i deses.
+- **Escaneja**: llegeix el codi de barres (EAN-13 = ISBN). Consulta Open Library i després Google Books. Et proposa gènere i mida si la font en té dades; tu confirmes la mida (petit fins a 24 cm, gran més de 24 cm) amb un botó i deses. Amb l'assistent activat, el botó «IA» del gènere el suggereix.
+- **Assistent**: xat amb Claude que veu el catàleg sencer amb les posicions. Serveix per preguntar on és un llibre, classificar els pendents, o demanar un ordre de gèneres millor. Els canvis que proposa només s'apliquen si prems «Aplica». Cal una clau de l'API d'Anthropic (Prestatgeria → Assistent IA); es guarda només al dispositiu i cada pregunta es cobra al teu compte.
 - **Llibres**: llista, cerca, edició. Els llibres sense alçada o gènere es marquen com a *pendents*. Exporta/importa JSON (còpia de seguretat) i CSV.
 - **Prestatgeria**: ve predefinida amb els dos prestatges de 95 cm. L'alçada es deixa buida perquè és muntable: l'app la recomana. Aquí també s'ordenen els gèneres i es trien les regles.
 - **Ordre**: per a cada prestatge, a quina alçada muntar-lo (passos de 5 cm des de 20), dibuix dels lloms i llista numerada de posició. Si no hi cap tot, diu quants cm falten i quins llibres queden fora.

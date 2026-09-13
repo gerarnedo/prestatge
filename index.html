@@ -61,6 +61,7 @@ nav.tabs button.active{color:var(--accent);font-weight:600}
 .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);background:var(--paper);white-space:nowrap}
 .pill.h{background:var(--accent-soft);border-color:transparent}
 .pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.loc{background:var(--ink);color:var(--paper);border-color:transparent;font-variant-numeric:tabular-nums}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:14px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
 .toast.show{opacity:1}
 /* scanner */
@@ -104,11 +105,22 @@ ol.order li .g{font-size:12px;color:var(--ink-2)}
 .sortlist{display:flex;flex-direction:column;gap:4px}
 .sortlist .item{padding:6px 10px}
 details summary{cursor:pointer;font-weight:500}
+/* assistent */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chat{display:flex;flex-direction:column;gap:10px;min-height:40px}
+.msg{max-width:92%;padding:10px 12px;border-radius:12px;white-space:pre-wrap;line-height:1.45}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:4px}
+.msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.ai.thinking{color:var(--ink-2);font-style:italic}
+.msg.err{align-self:flex-start;background:var(--bad-soft);color:var(--bad)}
+.proposal{align-self:stretch;border:1px solid var(--accent);border-radius:12px;padding:10px 12px;background:var(--accent-soft)}
+.proposal ul{margin:6px 0 8px;padding-left:18px;font-size:14px}
+.proposal.done{opacity:.6}
 dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(--card);color:var(--ink);width:min(560px,94vw);max-height:90vh}
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .wrap{padding:16px}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
-@media print{nav.tabs,#view-scan,#view-books,#view-shelves,#btnPrint,.toast{display:none!important}body{padding:0;background:#fff;color:#000}.view{display:none}#view-order{display:block}.card{border:0;padding:0;break-inside:avoid}.spines{display:none}}
+@media print{nav.tabs,#view-scan,#view-books,#view-shelves,#view-ai,#btnPrint,.toast{display:none!important}body{padding:0;background:#fff;color:#000}.view{display:none}#view-order{display:block}.card{border:0;padding:0;break-inside:avoid}.spines{display:none}}
 @media (min-width:640px){.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}}
 </style>
 </head>
@@ -173,8 +185,8 @@ dialog .wrap{padding:16px}
       <div class="card stack">
         <h2>Regles d'ordenació</h2>
         <div class="grid2">
-          <label class="f"><span>1. Alçada</span>
-            <select id="optHeightDir"><option value="desc">Alts primer</option><option value="asc">Baixos primer</option></select></label>
+          <label class="f"><span>1. Mida</span>
+            <select id="optHeightDir"><option value="desc">Grans primer</option><option value="asc">Petits primer</option></select></label>
           <label class="f"><span>3. Alfabètic per</span>
             <select id="optAlpha"><option value="author">Cognom de l'autor</option><option value="title">Títol</option></select></label>
         </div>
@@ -185,17 +197,46 @@ dialog .wrap{padding:16px}
           <button id="btnAddGenre">Afegeix</button>
         </div>
         <label class="row" style="gap:8px"><input type="checkbox" id="optKeepGroups" checked> Intenta no partir un gènere entre dos prestatges</label>
-        <label class="row" style="gap:8px"><input type="checkbox" id="optHeightBreaks"> Cada classe d'alçada comença en un prestatge nou si hi cap</label>
+        <label class="row" style="gap:8px"><input type="checkbox" id="optHeightBreaks"> Els grans i els petits van en prestatges diferents si hi caben</label>
         <div class="grid2">
           <label class="f"><span>Alçada mínima de muntatge (cm)</span><input type="number" id="optMinH" min="5"></label>
           <label class="f"><span>Pas entre alçades (cm)</span><input type="number" id="optStepH" min="1"></label>
         </div>
       </div>
       <div class="card stack">
+        <h2>Assistent IA</h2>
+        <label class="f"><span>Clau de l'API d'Anthropic</span><input type="password" id="optAiKey" placeholder="sk-ant-…" autocomplete="off"></label>
+        <label class="f"><span>Model</span><select id="optAiModel"><option value="claude-opus-5">Claude Opus 5 (recomanat)</option><option value="claude-sonnet-5">Claude Sonnet 5 (més barat)</option><option value="claude-haiku-4-5">Claude Haiku 4.5 (el més barat)</option></select></label>
+        <p class="muted">Cada pregunta envia el catàleg sencer al model i es cobra al teu compte d'Anthropic: amb uns 300 llibres, pocs cèntims per pregunta. La clau viu només al navegador d'aquest dispositiu.</p>
+      </div>
+      <div class="card stack">
         <h2>Fonts de dades</h2>
         <label class="f"><span>Clau API de Google Books (opcional)</span><input type="text" id="optGbKey" placeholder="Sense clau també funciona, amb límit diari"></label>
         <p class="muted">Primer es consulta Open Library, després Google Books. L'alçada i el gruix es proposen si la font els té; si no, tries la classe a mà.</p>
       </div>
+    </div>
+  </section>
+
+  <!-- ASSISTENT -->
+  <section class="view" id="view-ai">
+    <div class="stack">
+      <div class="card stack">
+        <h2>Assistent</h2>
+        <p class="muted">Pregunta on és un llibre, demana que classifiqui els pendents o que et proposi un ordre de gèneres millor. L'assistent veu tot el catàleg amb les posicions calculades i només canvia coses si tu ho aproves.</p>
+        <p class="muted" id="aiNoKey">Per fer-lo servir cal una clau de l'API d'Anthropic. Es desa només en aquest dispositiu i no s'inclou a les exportacions. Posa-la a <b>Prestatgeria → Assistent IA</b>.</p>
+      </div>
+      <div class="chips" id="aiChips">
+        <button class="small">On tinc «Sapiens»?</button>
+        <button class="small">Classifica els llibres pendents</button>
+        <button class="small">Com milloraries l'ordre dels gèneres?</button>
+        <button class="small">Quins llibres de dibuix tinc?</button>
+      </div>
+      <div class="chat" id="chat"></div>
+      <form id="aiForm" class="row" style="flex-wrap:nowrap">
+        <input type="text" id="aiInput" placeholder="Escriu una pregunta…" style="flex:1" autocomplete="off">
+        <button type="submit" class="primary" id="aiSend">Envia</button>
+      </form>
+      <div class="row between" id="aiFooter"><span class="muted" id="aiUsage"></span><button class="ghost small" id="aiClear">Nova conversa</button></div>
     </div>
   </section>
 
@@ -216,6 +257,7 @@ dialog .wrap{padding:16px}
   <button data-view="books"><svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h3v15M8 19V4h4v15M12 19l3-14 4 1-3 14z"/><path d="M3 20h18"/></svg>Llibres</button>
   <button data-view="shelves"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18M6 5v7M10 5v7M14 12v7M8 12v7"/></svg>Prestatgeria</button>
   <button data-view="order"><svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h14M4 18h7M18 9l3 3-3 3"/></svg>Ordre</button>
+  <button data-view="ai"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M9 9h7M9 12h4"/></svg>Assistent</button>
 </nav>
 
 <div class="toast" id="toast"></div>
@@ -227,11 +269,10 @@ dialog .wrap{padding:16px}
 'use strict';
 /* ---------- Model i persistència ---------- */
 const HEIGHTS = [
-  {id:'butxaca', name:'Butxaca',  hint:'< 18 cm',   cm:17.5, maxCm:18, rank:1},
-  {id:'normal',  name:'Normal',   hint:'18–24 cm',  cm:22,   maxCm:24, rank:2},
-  {id:'gran',    name:'Gran',     hint:'24–30 cm',  cm:28,   maxCm:30, rank:3},
-  {id:'revista', name:'Revista / àlbum', hint:'> 30 cm', cm:33, maxCm:36, rank:4},
+  {id:'petit', name:'Petit', hint:'fins a 24 cm · novel·les, butxaca, text', cm:21, maxCm:24, rank:1},
+  {id:'gran',  name:'Gran',  hint:'més de 24 cm · il·lustrats, revistes',   cm:30, maxCm:35, rank:2},
 ];
+const OLD_HEIGHTS={butxaca:'petit',normal:'petit',gran:'gran',revista:'gran'};
 const DEFAULT_GENRES = ['Disseny','Dibuix','Il·lustració','Pintura','Escultura','Arquitectura','Fotografia','Art','Còmic','Novel·la','Poesia','Assaig','Text / manual','Infantil','Altres'];
 const GENRE_RULES = [
   ['Disseny',['disseny','diseño','design','graphic','gràfic','gráfic','tipograf','typograph','branding','user experience','ux ','interface','packaging']],
@@ -261,6 +302,10 @@ let state = store.load() || {
 };
 state.opts = Object.assign({heightDir:'desc', alpha:'author', keepGroups:true, heightBreaks:false, gbKey:'', minShelfH:20, stepShelfH:5}, state.opts||{});
 if(!state.genres||!state.genres.length) state.genres = DEFAULT_GENRES.slice();
+// Migració: les quatre mides antigues passen a dues.
+for(const b of state.books){ if(b.heightClass && OLD_HEIGHTS[b.heightClass]) b.heightClass=OLD_HEIGHTS[b.heightClass]; }
+// Ajust de l'usuari que es guarda a part de l'estat perquè no vagi a les exportacions.
+const secret={ get(){ try{ return localStorage.getItem('prestatge.aikey')||'' }catch(e){ return '' } }, set(v){ try{ v?localStorage.setItem('prestatge.aikey',v):localStorage.removeItem('prestatge.aikey') }catch(e){} } };
 
 const $ = s=>document.querySelector(s);
 const uid = ()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
@@ -276,7 +321,7 @@ function isValidIsbn(s){
   return false;
 }
 function isbn10to13(s){ if(s.length!==10) return s; const core='978'+s.slice(0,9); let sum=0; for(let i=0;i<12;i++) sum+=(+core[i])*(i%2?3:1); return core+((10-sum%10)%10); }
-function heightClassFromCm(cm){ if(!cm) return ''; if(cm<18) return 'butxaca'; if(cm<24) return 'normal'; if(cm<30) return 'gran'; return 'revista'; }
+function heightClassFromCm(cm){ if(!cm) return ''; return cm<=24?'petit':'gran'; }
 function guessGenre(cats){
   const txt=(cats||[]).join(' | ').toLowerCase();
   if(!txt) return '';
@@ -285,14 +330,14 @@ function guessGenre(cats){
 }
 function estimateThickness(b){
   if(b.thicknessMm) return b.thicknessMm;
-  if(b.heightClass==='revista') return 8;
   const p=+b.pages||0;
-  if(!p) return 25;
+  if(!p) return b.heightClass==='gran'?15:25;
   const hard=/hard|tapa dura|cartoné/i.test(b.format||'');
   return Math.round(p*0.065 + (hard?9:4));
 }
-function heightCm(b){ if(b.heightCm) return +b.heightCm; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.cm:22; }
+function heightCm(b){ if(b.heightCm) return +b.heightCm; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.cm:21; }
 function neededCm(b){ if(b.heightCm) return +b.heightCm+1; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.maxCm:24; }
+function positions(){ const {shelves}=placeBooks(); const m=new Map(); shelves.forEach(s=>s.books.forEach((b,i)=>m.set(b.id,{shelf:s.name,pos:i+1}))); return m; }
 function recommendedShelfH(books){ if(!books.length) return 0; const need=Math.max(...books.map(neededCm)); const min=+state.opts.minShelfH||20, step=+state.opts.stepShelfH||5; return Math.max(min, Math.ceil((need-min)/step)*step+min); }
 const ARTICLES=/^(el|la|els|les|l'|un|una|uns|unes|the|a|an|los|las|le|les|der|die|das)\s+/i;
 function titleKey(t){ return String(t||'').replace(/^[¡¿"'«(]+/,'').replace(ARTICLES,'').replace(/^l'/i,'').trim(); }
@@ -310,7 +355,7 @@ function isPending(b){ return !b.heightClass || !b.genre; }
 
 /* ---------- Ordenació ---------- */
 function sortedBooks(){
-  const rankH=b=>{ const h=HEIGHTS.find(x=>x.id===b.heightClass); return h?h.rank:2; };
+  const rankH=b=>{ const h=HEIGHTS.find(x=>x.id===b.heightClass); return h?h.rank:1; };
   const rankG=b=>{ const i=state.genres.indexOf(b.genre||'Altres'); return i<0?state.genres.length:i; };
   const dir=state.opts.heightDir==='desc'?-1:1;
   return state.books.slice().sort((a,b)=>{
@@ -327,15 +372,15 @@ function placeBooks(){
   const shelves=state.shelves.map(s=>({name:s.name, width:+s.width||0, widthMm:(+s.width||0)*10, maxHeight:+s.maxHeight||0, used:0, books:[]}));
   const noFit=[], overflow=[];
   if(!shelves.length){ return {shelves, noFit:books, overflow}; }
-  const groupKey=b=>(b.heightClass||'normal')+'|'+(b.genre||'Altres');
+  const groupKey=b=>(b.heightClass||'petit')+'|'+(b.genre||'Altres');
   const groupTotal=new Map();
   for(const b of books){ const k=groupKey(b); groupTotal.set(k,(groupTotal.get(k)||0)+estimateThickness(b)); }
   const fitsHeight=(s,b)=>!s.maxHeight || heightCm(b)<=s.maxHeight;
   let si=0, prevKey=null, prevH=null;
   for(const b of books){
     const t=estimateThickness(b), k=groupKey(b);
-    const newGroup=k!==prevKey, newHeight=(b.heightClass||'normal')!==prevH;
-    prevKey=k; prevH=b.heightClass||'normal';
+    const newGroup=k!==prevKey, newHeight=(b.heightClass||'petit')!==prevH;
+    prevKey=k; prevH=b.heightClass||'petit';
     // busca el primer prestatge (des de l'actual) on el llibre càpiga en alçada
     let target=-1;
     for(let i=si;i<shelves.length;i++){ if(fitsHeight(shelves[i],b)){ target=i; break; } }
@@ -410,7 +455,7 @@ async function lookup(isbn){
 }
 
 /* ---------- Vistes ---------- */
-const TITLES={scan:'Escaneja',books:'Llibres',shelves:'Prestatgeria',order:'Ordre'};
+const TITLES={scan:'Escaneja',books:'Llibres',shelves:'Prestatgeria',order:'Ordre',ai:'Assistent'};
 function showView(v){
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+v));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
@@ -418,6 +463,7 @@ function showView(v){
   if(v==='books') renderBooks();
   if(v==='shelves') renderShelves();
   if(v==='order') renderOrder();
+  if(v==='ai') renderAi();
   if(v!=='scan' && scanner.running) scanner.stop();
   try{ localStorage.setItem('prestatge.view',v) }catch(e){}
 }
@@ -483,11 +529,12 @@ function bookForm(b,isNew){
       </div>
     </div>
     <div>
-      <label class="f"><span>1 · Alçada ${b.heightCm?'(la font diu '+esc(b.heightCm)+' cm)':''}</span></label>
+      <label class="f"><span>1 · Mida ${b.heightCm?'(la font diu '+esc(b.heightCm)+' cm)':''}</span></label>
       <div class="seg" data-field="heightClass">${HEIGHTS.map(h=>`<button type="button" data-v="${h.id}" class="${h.id===b.heightClass?'on':''}">${h.name}<small>${h.hint}</small></button>`).join('')}</div>
+      <div class="muted" style="margin-top:4px">Si és gran, posa l'alçada exacta a «Més camps»: així la recomanació d'alçada del prestatge és ajustada.</div>
     </div>
     <div class="grid2">
-      <label class="f"><span>2 · Gènere</span><select name="genre"><option value="">— tria —</option>${opts}</select></label>
+      <label class="f"><span>2 · Gènere</span><div class="row" style="gap:6px;flex-wrap:nowrap"><select name="genre" style="flex:1"><option value="">— tria —</option>${opts}</select><button type="button" class="small" data-act="ai-genre" title="Suggereix el gènere amb IA" ${secret.get()?'':'hidden'}>IA</button></div></label>
       <label class="f"><span>Gruix del llom (mm)</span><input type="number" name="thicknessMm" min="1" max="200" step="1" value="${esc(b.thicknessMm)}" placeholder="≈ ${estimateThickness(b)}"></label>
     </div>
     <details><summary class="muted">Més camps</summary>
@@ -517,6 +564,14 @@ function wireForm(root,b,onSave,onCancel,onDelete){
     onSave();
   });
   root.querySelector('[data-act=cancel]').addEventListener('click',onCancel);
+  const aiBtn=root.querySelector('[data-act=ai-genre]');
+  if(aiBtn) aiBtn.addEventListener('click',async()=>{ aiBtn.disabled=true; aiBtn.textContent='…';
+    try{ const r=await ai.classify({title:root.querySelector('[name=title]').value, authors:root.querySelector('[name=authors]').value, publisher:b.publisher, categories:b.categories, pages:b.pages});
+      if(r.genre){ root.querySelector('[name=genre]').value=r.genre; }
+      if(r.heightClass && !b.heightClass){ const btn=root.querySelector(`.seg[data-field] button[data-v=${r.heightClass}]`); if(btn) btn.click(); }
+      toast(r.genre?('IA: '+r.genre+(r.heightClass?' · '+r.heightClass:'')+(r.reason?' — '+r.reason:'')):'La IA no ho té clar');
+    }catch(e){ toast(ai.errMsg(e)); }
+    aiBtn.disabled=false; aiBtn.textContent='IA'; });
   const del=root.querySelector('[data-act=delete]'); if(del) del.addEventListener('click',()=>{ if(confirm('Eliminar «'+b.title+'»?')) onDelete(); });
 }
 
@@ -525,13 +580,15 @@ function renderBooks(){
   const q=$('#searchBooks').value.trim().toLowerCase();
   const list=$('#bookList'); list.innerHTML='';
   const books=sortedBooks().filter(b=>!q||[b.title,(b.authors||[]).join(' '),b.genre,b.isbn].join(' ').toLowerCase().includes(q));
+  const pos=positions();
   const p=state.books.filter(isPending).length;
   $('#pendingLbl').textContent=p?p+' pendent'+(p>1?'s':'')+' de classificar':'Tot classificat';
   if(!books.length){ list.innerHTML='<p class="muted">'+(state.books.length?'Cap coincidència.':'Encara no hi ha llibres. Escaneja\'n el primer.')+'</p>'; return; }
   for(const b of books){
     const h=HEIGHTS.find(x=>x.id===b.heightClass);
     const el=document.createElement('div'); el.className='item'+(isPending(b)?' pending':'');
-    el.innerHTML=`<div><div class="t">${esc(b.title)}</div><div class="s">${esc((b.authors||[]).join('; ')||'—')} <span class="pill ${h?'h':'warn'}">${h?h.name:'sense alçada'}</span> <span class="pill ${b.genre?'':'warn'}">${esc(b.genre||'sense gènere')}</span> <span class="muted">${estimateThickness(b)} mm</span></div></div><button class="small">Edita</button>`;
+    const p=pos.get(b.id);
+    el.innerHTML=`<div><div class="t">${esc(b.title)}</div><div class="s">${esc((b.authors||[]).join('; ')||'—')} <span class="pill ${h?'h':'warn'}">${h?h.name:'sense mida'}</span> <span class="pill ${b.genre?'':'warn'}">${esc(b.genre||'sense gènere')}</span> ${p?`<span class="pill loc">${esc(p.shelf)} · ${p.pos}</span>`:'<span class="pill warn">no hi cap</span>'}</div></div><button class="small">Edita</button>`;
     el.querySelector('button').addEventListener('click',()=>editBook(b));
     list.appendChild(el);
   }
@@ -577,7 +634,7 @@ function renderShelves(){
     row.querySelector('[data-del]').addEventListener('click',()=>{ state.shelves.splice(i,1); store.save(); renderShelves(); });
     box.appendChild(row);
   });
-  $('#optHeightDir').value=state.opts.heightDir; $('#optAlpha').value=state.opts.alpha; $('#optKeepGroups').checked=!!state.opts.keepGroups; $('#optHeightBreaks').checked=!!state.opts.heightBreaks; $('#optGbKey').value=state.opts.gbKey||''; $('#optMinH').value=state.opts.minShelfH; $('#optStepH').value=state.opts.stepShelfH;
+  $('#optHeightDir').value=state.opts.heightDir; $('#optAlpha').value=state.opts.alpha; $('#optKeepGroups').checked=!!state.opts.keepGroups; $('#optHeightBreaks').checked=!!state.opts.heightBreaks; $('#optGbKey').value=state.opts.gbKey||''; $('#optMinH').value=state.opts.minShelfH; $('#optStepH').value=state.opts.stepShelfH; $('#optAiKey').value=secret.get(); $('#optAiModel').value=state.opts.aiModel||'claude-opus-5';
   const go=$('#genreOrder'); go.innerHTML='';
   state.genres.forEach((g,i)=>{
     const n=state.books.filter(b=>b.genre===g).length;
@@ -590,7 +647,8 @@ function renderShelves(){
 }
 $('#btnAddShelf').addEventListener('click',()=>{ const last=state.shelves[state.shelves.length-1]; state.shelves.push({name:'Prestatge '+(state.shelves.length+1),width:last?last.width:80,maxHeight:''}); store.save(); renderShelves(); });
 $('#btnAddGenre').addEventListener('click',()=>{ const v=$('#newGenre').value.trim(); if(!v) return; if(state.genres.some(g=>coll.compare(g,v)===0)){ toast('Ja existeix'); return; } state.genres.push(v); $('#newGenre').value=''; store.save(); renderShelves(); });
-for(const [id,k,prop] of [['#optHeightDir','heightDir','value'],['#optAlpha','alpha','value'],['#optKeepGroups','keepGroups','checked'],['#optHeightBreaks','heightBreaks','checked'],['#optGbKey','gbKey','value'],['#optMinH','minShelfH','value'],['#optStepH','stepShelfH','value']]){
+$('#optAiKey').addEventListener('change',e=>{ secret.set(e.target.value.trim()); toast(e.target.value.trim()?'Clau desada en aquest dispositiu':'Clau esborrada'); });
+for(const [id,k,prop] of [['#optHeightDir','heightDir','value'],['#optAlpha','alpha','value'],['#optKeepGroups','keepGroups','checked'],['#optHeightBreaks','heightBreaks','checked'],['#optGbKey','gbKey','value'],['#optMinH','minShelfH','value'],['#optStepH','stepShelfH','value'],['#optAiModel','aiModel','value']]){
   $(id).addEventListener('change',e=>{ state.opts[k]=e.target[prop]; store.save(); });
 }
 
@@ -603,7 +661,7 @@ function renderOrder(){
   const pending=state.books.filter(isPending).length;
   const totalMm=state.books.reduce((a,b)=>a+estimateThickness(b),0);
   const cap=shelves.reduce((a,s)=>a+s.width,0);
-  $('#orderSummary').textContent=`${state.books.length} llibres · ${(totalMm/10).toFixed(0)} cm de llom · ${cap} cm de prestatge`+(totalMm/10>cap?' · NO HI CAP TOT':'')+(pending?` · ${pending} pendents (col·locats com a normal/Altres)`:'');
+  $('#orderSummary').textContent=`${state.books.length} llibres · ${(totalMm/10).toFixed(0)} cm de llom · ${cap} cm de prestatge`+(totalMm/10>cap?' · NO HI CAP TOT':'')+(pending?` · ${pending} pendents (col·locats com a petit/Altres)`:'');
   const usedGenres=new Set();
   shelves.forEach((s,si)=>{
     const div=document.createElement('div'); div.className='shelfblock card';
@@ -612,7 +670,7 @@ function renderOrder(){
     let html=`<h3><span>${esc(s.name)}</span><span class="muted" style="font-variant-numeric:tabular-nums">${(s.used/10).toFixed(0)} / ${s.width} cm${s.maxHeight?' · màx '+s.maxHeight+' cm':''}</span></h3>
       <div class="fill"><i class="${over?'over':''}" style="width:${pct}%"></i></div>`;
     if(s.books.length && !s.maxHeight){ const rec=recommendedShelfH(s.books); const tall=s.books.reduce((m,b)=>neededCm(b)>neededCm(m)?b:m,s.books[0]);
-      html+=`<p class="rec"><b>Munta'l a ${rec} cm d'alçada.</b> <span class="muted">El llibre més alt és «${esc(tall.title)}» (${tall.heightCm?tall.heightCm+' cm':HEIGHTS.find(h=>h.id===(tall.heightClass||'normal')).name.toLowerCase()+', fins a '+neededCm(tall)+' cm'}).</span></p>`; }
+      html+=`<p class="rec"><b>Munta'l a ${rec} cm d'alçada.</b> <span class="muted">El llibre més alt és «${esc(tall.title)}» (${tall.heightCm?tall.heightCm+' cm':HEIGHTS.find(h=>h.id===(tall.heightClass||'petit')).name.toLowerCase()+', fins a '+neededCm(tall)+' cm'}).</span></p>`; }
     if(!s.books.length){ html+='<p class="muted">Buit.</p>'; }
     else{
       const maxH=Math.max(...s.books.map(heightCm));
@@ -620,7 +678,7 @@ function renderOrder(){
       html+='<div class="spines">'+s.books.map(b=>{ usedGenres.add(b.genre||'Altres'); const w=Math.max(3,Math.round(estimateThickness(b)*scale)); const h=Math.round(heightCm(b)/Math.max(maxH,30)*110); return `<div class="spine" style="width:${w}px;height:${h}px;background:${genreColor(b.genre||'Altres')}" title="${esc(b.title)}">${w>=11?'<span>'+esc(b.title.slice(0,28))+'</span>':''}</div>`; }).join('')+'</div>';
       html+='<ol class="order">';
       let prev=null;
-      s.books.forEach(b=>{ const k=(b.heightClass||'normal')+'|'+(b.genre||'Altres'); if(k!==prev){ const h=HEIGHTS.find(x=>x.id===(b.heightClass||'normal')); html+=`</ol><div class="grouphead">${h.name} · ${esc(b.genre||'Altres')}</div><ol class="order" style="counter-reset:pos ${s.books.indexOf(b)}">`; prev=k; }
+      s.books.forEach(b=>{ const k=(b.heightClass||'petit')+'|'+(b.genre||'Altres'); if(k!==prev){ const h=HEIGHTS.find(x=>x.id===(b.heightClass||'petit')); html+=`</ol><div class="grouphead">${h.name} · ${esc(b.genre||'Altres')}</div><ol class="order" style="counter-reset:pos ${s.books.indexOf(b)}">`; prev=k; }
         html+=`<li><div>${state.opts.alpha==='author'&&(b.authors||[]).length?'<b>'+esc(authorKey(b))+'</b> · ':''}${esc(b.title)}${isPending(b)?' <span class="pill warn">pendent</span>':''}<div class="g">${esc((b.authors||[]).join('; '))}${b.thicknessMm?'':' · gruix estimat '+estimateThickness(b)+' mm'}</div></div></li>`; });
       html+='</ol>';
     }
@@ -631,6 +689,126 @@ function renderOrder(){
   const lg=document.createElement('div'); lg.className='legend'; lg.innerHTML=[...usedGenres].map(g=>`<span class="pill"><i style="background:${genreColor(g)}"></i>${esc(g)}</span>`).join(''); out.appendChild(lg);
 }
 $('#btnPrint').addEventListener('click',()=>window.print());
+
+/* ---------- Assistent: crida directa a l'API de Claude des del navegador amb la clau de l'usuari ---------- */
+const ai={
+  url:'https://api.anthropic.com/v1/messages',
+  model(){ return state.opts.aiModel||'claude-opus-5'; },
+  headers(){ return {'content-type':'application/json','x-api-key':secret.get(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','anthropic-beta':'server-side-fallback-2026-07-01'}; },
+  async call(body){
+    if(!secret.get()) throw new Error('nokey');
+    const r=await fetch(this.url,{method:'POST',headers:this.headers(),body:JSON.stringify(Object.assign({model:this.model(),fallbacks:'default'},body))});
+    if(!r.ok){ let m=''; try{ m=(await r.json()).error?.message||'' }catch(e){} const e=new Error(m||('HTTP '+r.status)); e.status=r.status; throw e; }
+    const j=await r.json();
+    if(j.stop_reason==='refusal') throw new Error('refusal');
+    return j;
+  },
+  errMsg(e){
+    if(e.message==='nokey') return 'Cal la clau de l\'API a Prestatgeria → Assistent IA';
+    if(e.status===401) return 'La clau de l\'API no és vàlida';
+    if(e.status===429) return 'Has superat el límit de peticions. Espera un moment.';
+    if(e.status===400) return 'L\'API ha rebutjat la petició: '+e.message;
+    if(e.message==='refusal') return 'El model ha declinat respondre.';
+    if(e.message==='Failed to fetch') return 'No s\'ha pogut connectar amb l\'API (sense connexió?)';
+    return 'Error de l\'assistent: '+e.message;
+  },
+  catalog(){
+    const pos=positions();
+    const lines=sortedBooks().map(b=>{ const p=pos.get(b.id); return [b.id,b.title,(b.authors||[]).join('; '),b.heightClass||'?',b.genre||'?',p?p.shelf:'fora',p?p.pos:'-',estimateThickness(b)+'mm',b.publisher||'',b.year||''].join(' | '); });
+    return 'id | títol | autors | mida | gènere | prestatge | posició | gruix | editorial | any\n'+lines.join('\n');
+  },
+  system(){
+    const rec=placeBooks().shelves.map(s=>`${s.name}: ${s.width} cm d'ample, ${(s.used/10).toFixed(0)} cm ocupats, ${s.books.length} llibres, alçada de muntatge recomanada ${recommendedShelfH(s.books)} cm`).join('\n');
+    return `Ets l'assistent de «Prestatge», una app que ordena la prestatgeria de casa d'en Gerard. Respon sempre en català, breu i concret.
+
+Regles d'ordenació de l'app, en aquest ordre: 1) mida (${state.opts.heightDir==='desc'?'grans primer':'petits primer'}; només hi ha dues mides: petit fins a 24 cm i gran més de 24 cm), 2) gènere segons aquest ordre: ${state.genres.join(' → ')}, 3) alfabètic per ${state.opts.alpha==='author'?'cognom del primer autor':'títol'}. Els llibres es reparteixen omplint els prestatges de dalt a baix.
+
+Prestatges:
+${rec}
+
+Catàleg (una línia per llibre; posició = ordre dins del prestatge començant per l'esquerra; «?» vol dir pendent de classificar):
+${this.catalog()}
+
+Què pots fer:
+- Dir on és un llibre: prestatge, posició i entre quins llibres queda. Si el títol no coincideix exactament, busca el més semblant i digues-ho.
+- Classificar llibres (gènere i mida) quan t'ho demanin o siguin pendents: fes servir l'eina proposar_canvis amb l'id de cada llibre. Tria només gèneres de la llista. No inventis la mida si no la pots deduir amb força seguretat: deixa-la buida.
+- Proposar un ordre de gèneres diferent amb l'eina proposar_canvis, i el motiu.
+- Recomanar millores d'ordenació, detectar duplicats, gèneres mal posats o noms d'autor inconsistents.
+Quan facis servir l'eina, l'usuari veurà la proposta i decidirà si l'aplica; explica en una frase què proposes i per què.`;
+  },
+  tools(){ return [{name:'proposar_canvis',description:'Proposa canvis al catàleg o a la configuració. L\'usuari els revisa i els aplica manualment.',strict:true,input_schema:{type:'object',additionalProperties:false,properties:{
+      motiu:{type:'string',description:'Una frase explicant la proposta'},
+      ordreGeneres:{type:'array',items:{type:'string'},description:'Nou ordre complet dels gèneres; buit si no canvia'},
+      llibres:{type:'array',description:'Canvis per llibre; buit si no n\'hi ha',items:{type:'object',additionalProperties:false,properties:{id:{type:'string'},genre:{type:'string',description:'Gènere de la llista, o cadena buida per no canviar-lo'},heightClass:{type:'string',enum:['petit','gran','']}},required:['id','genre','heightClass']}}
+    },required:['motiu','ordreGeneres','llibres']}}]; },
+  history:[], usage:{inp:0,out:0},
+  async chat(text,onUpdate){
+    this.history.push({role:'user',content:text});
+    const proposals=[]; let finalText='';
+    for(let round=0;round<4;round++){
+      const j=await this.call({max_tokens:8000,output_config:{effort:'medium'},system:[{type:'text',text:this.system(),cache_control:{type:'ephemeral'}}],tools:this.tools(),messages:this.history});
+      this.usage.inp+=(j.usage?.input_tokens||0)+(j.usage?.cache_read_input_tokens||0)+(j.usage?.cache_creation_input_tokens||0); this.usage.out+=j.usage?.output_tokens||0;
+      this.history.push({role:'assistant',content:j.content});
+      const t=j.content.filter(c=>c.type==='text').map(c=>c.text).join('\n').trim(); if(t) finalText+=(finalText?'\n\n':'')+t;
+      const uses=j.content.filter(c=>c.type==='tool_use');
+      if(j.stop_reason!=='tool_use'||!uses.length) break;
+      const results=uses.map(u=>{ const prop=this.parseProposal(u.input); proposals.push(prop); return {type:'tool_result',tool_use_id:u.id,content:prop.items.length?`Proposta registrada amb ${prop.items.length} canvis. L'usuari la veu i pot aplicar-la.`:'La proposta no conté cap canvi aplicable.'}; });
+      this.history.push({role:'user',content:results});
+      if(onUpdate) onUpdate(finalText,proposals);
+    }
+    return {text:finalText,proposals};
+  },
+  parseProposal(inp){
+    const items=[];
+    if(Array.isArray(inp.ordreGeneres)&&inp.ordreGeneres.length){ const known=new Set(state.genres); const order=inp.ordreGeneres.filter(g=>known.has(g)); const missing=state.genres.filter(g=>!order.includes(g)); const full=order.concat(missing); if(full.join()!==state.genres.join()) items.push({kind:'order',order:full,label:'Ordre de gèneres: '+full.join(' → ')}); }
+    for(const c of (inp.llibres||[])){ const b=state.books.find(x=>x.id===c.id); if(!b) continue; const ch={};
+      if(c.genre && state.genres.includes(c.genre) && c.genre!==b.genre) ch.genre=c.genre;
+      if(c.heightClass && HEIGHTS.some(h=>h.id===c.heightClass) && c.heightClass!==b.heightClass) ch.heightClass=c.heightClass;
+      if(Object.keys(ch).length) items.push({kind:'book',id:b.id,changes:ch,label:`«${b.title}»: `+[ch.genre?'gènere → '+ch.genre:'',ch.heightClass?'mida → '+ch.heightClass:''].filter(Boolean).join(', ')}); }
+    return {reason:inp.motiu||'',items,applied:false};
+  },
+  apply(prop){
+    for(const it of prop.items){ if(it.kind==='order') state.genres=it.order.slice(); else { const b=state.books.find(x=>x.id===it.id); if(b) Object.assign(b,it.changes); } }
+    prop.applied=true; store.save(); updateCount();
+  },
+  async classify(b){
+    const j=await this.call({max_tokens:400,output_config:{effort:'low'},
+      system:`Classifiques llibres per a una prestatgeria de casa. Gèneres possibles: ${state.genres.join(', ')}. Mides: «petit» (fins a 24 cm d'alçada: novel·les, butxaca, text, assaig) o «gran» (més de 24 cm: llibres il·lustrats, d'art, disseny, fotografia, revistes). Respon només amb l'eina.`,
+      tools:[{name:'classifica',strict:true,description:'Retorna la classificació',input_schema:{type:'object',additionalProperties:false,properties:{genre:{type:'string',enum:state.genres.concat([''])},heightClass:{type:'string',enum:['petit','gran','']},reason:{type:'string',description:'Motiu en poques paraules, en català'}},required:['genre','heightClass','reason']}}],
+      tool_choice:{type:'tool',name:'classifica'},
+      messages:[{role:'user',content:`Títol: ${b.title}\nAutors: ${b.authors||''}\nEditorial: ${b.publisher||''}\nPàgines: ${b.pages||''}\nMatèries de la font: ${(b.categories||[]).join(', ')||'cap'}\nSi no estàs segur de la mida, deixa-la buida.`}]});
+    const u=j.content.find(c=>c.type==='tool_use'); return u?u.input:{};
+  }
+};
+function renderAi(){
+  const has=!!secret.get();
+  $('#aiNoKey').hidden=has; $('#aiChips').hidden=!has; $('#aiForm').hidden=!has; $('#aiFooter').hidden=!has;
+}
+function addMsg(cls,text){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=text; $('#chat').appendChild(d); d.scrollIntoView({block:'nearest'}); return d; }
+function addProposal(prop){
+  const d=document.createElement('div'); d.className='proposal';
+  d.innerHTML=`<b>Proposta</b>${prop.reason?': '+esc(prop.reason):''}<ul>${prop.items.map(i=>'<li>'+esc(i.label)+'</li>').join('')}</ul><div class="row"><button class="primary small" data-apply>Aplica ${prop.items.length} canvi${prop.items.length===1?'':'s'}</button><button class="small" data-skip>Descarta</button></div>`;
+  d.querySelector('[data-apply]').addEventListener('click',()=>{ ai.apply(prop); d.classList.add('done'); d.querySelector('.row').innerHTML='<span class="muted">Aplicat.</span>'; toast('Canvis aplicats'); });
+  d.querySelector('[data-skip]').addEventListener('click',()=>{ d.classList.add('done'); d.querySelector('.row').innerHTML='<span class="muted">Descartat.</span>'; });
+  $('#chat').appendChild(d); d.scrollIntoView({block:'nearest'});
+}
+async function askAi(text){
+  text=text.trim(); if(!text) return;
+  $('#aiInput').value=''; $('#aiSend').disabled=true;
+  addMsg('user',text);
+  const th=addMsg('ai thinking','Pensant…');
+  let shown=0;
+  try{
+    const {text:answer,proposals}=await ai.chat(text,(partial,props)=>{ th.textContent=partial||'Preparant una proposta…'; for(;shown<props.length;shown++) addProposal(props[shown]); });
+    th.classList.remove('thinking'); th.textContent=answer||(proposals.length?'Aquí tens la proposta.':'(sense resposta)');
+    for(;shown<proposals.length;shown++) addProposal(proposals[shown]);
+    $('#aiUsage').textContent=`${ai.usage.inp.toLocaleString('ca')} tokens d'entrada · ${ai.usage.out.toLocaleString('ca')} de sortida en aquesta conversa`;
+  }catch(e){ th.remove(); addMsg('err',ai.errMsg(e)); ai.history=ai.history.filter(m=>!(m.role==='user'&&m.content===text)); }
+  $('#aiSend').disabled=false;
+}
+$('#aiForm').addEventListener('submit',e=>{ e.preventDefault(); askAi($('#aiInput').value); });
+$('#aiChips').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) askAi(b.textContent); });
+$('#aiClear').addEventListener('click',()=>{ ai.history=[]; ai.usage={inp:0,out:0}; $('#chat').innerHTML=''; $('#aiUsage').textContent=''; });
 
 /* ---------- Inici ---------- */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
