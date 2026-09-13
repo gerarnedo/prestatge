@@ -260,7 +260,8 @@ dialog .wrap{padding:16px}
         <div class="row between"><span class="muted" id="syncStatus">Sense sincronització: cada dispositiu té el seu catàleg.</span><button class="small" id="btnSyncNow">Sincronitza ara</button></div>
         <p class="muted">El catàleg es guarda en un Gist privat del teu compte i s'actualitza sol en desar i en obrir l'app. Posa el mateix token a cada dispositiu. Per crear-lo: github.com → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token, marca només <i>gist</i>.</p>
         <h3>Fonts de dades</h3>
-        <label class="f"><span>Clau API de Google Books (opcional)</span><input type="text" id="optGbKey" placeholder="Sense clau també funciona, amb límit diari"></label>
+        <label class="f"><span>Clau API de Google Books (opcional)</span><input type="text" id="optGbKey" placeholder="Sense clau també funciona" autocomplete="off"></label>
+        <p class="muted">Open Library és la font principal i no té límit. Google Books només completa fitxes que li falten i, sense clau, comparteix una quota diària que sovint està esgotada: quan passa, l'app deixa de consultar-lo unes hores i no et molesta més. Si en vols una de pròpia i gratuïta: console.cloud.google.com → crea un projecte → activa <i>Books API</i> → Credencials → Crea una clau d'API.</p>
       </div>
       </details>
     </div>
@@ -479,9 +480,16 @@ async function lookupOpenLibrary(isbn){
   }catch(e){}
   return out.title?out:null;
 }
+// Sense clau, Google Books comparteix una quota diària que sovint està esgotada.
+// Quan retorna 429 deixem de trucar-hi unes hores: així cada escaneig no perd temps en una petició que fallarà.
+const gbBlock={ get(){ try{ return +localStorage.getItem('prestatge.gbblock')||0 }catch(e){ return 0 } }, set(t){ try{ localStorage.setItem('prestatge.gbblock',String(t)) }catch(e){} } };
+function gbAvailable(){ return !!state.opts.gbKey || Date.now()>gbBlock.get(); }
 async function lookupGoogle(isbn){
+  if(!gbAvailable()){ const e=new Error('429 (en pausa)'); e.quota=true; throw e; }
   const key=state.opts.gbKey?'&key='+encodeURIComponent(state.opts.gbKey):'';
-  const s=await fetchJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+isbn+key);
+  let s;
+  try{ s=await fetchJson('https://www.googleapis.com/books/v1/volumes?q=isbn:'+isbn+key); }
+  catch(err){ if(/429/.test(err.message)&&!state.opts.gbKey){ gbBlock.set(Date.now()+6*3600e3); err.quota=true; } throw err; }
   const it=s.items&&s.items[0]; if(!it) return null;
   let v=it.volumeInfo||{};
   try{ const full=await fetchJson('https://www.googleapis.com/books/v1/volumes/'+it.id+'?'+key.slice(1)); if(full.volumeInfo) v=Object.assign({},v,full.volumeInfo); }catch(e){}
@@ -491,12 +499,13 @@ async function lookupGoogle(isbn){
 }
 async function lookup(isbn){
   const st=$('#lookupState'); st.hidden=false; st.textContent='Cercant '+isbn+' a Open Library…';
-  let ol=null, gb=null;
+  let ol=null, gb=null, quota=false;
   try{ ol=await lookupOpenLibrary(isbn) }catch(e){}
-  st.textContent = ol ? 'Trobat a Open Library. Completant amb Google Books…' : 'No és a Open Library. Provant Google Books…';
-  try{ gb=await lookupGoogle(isbn) }catch(e){ if(/429/.test(e.message)) toast('Google Books ha superat el límit diari sense clau'); }
+  if(gbAvailable()) st.textContent = ol ? 'Trobat a Open Library. Completant amb Google Books…' : 'No és a Open Library. Provant Google Books…';
+  try{ gb=await lookupGoogle(isbn) }catch(e){ quota=!!e.quota; }
   st.hidden=true;
-  if(!ol && !gb) return null;
+  // Només molestem amb el límit de Google si no hem trobat res: si Open Library ha respost, la fitxa ja és bona.
+  if(!ol && !gb){ if(quota) toast('No trobat. Google Books està al seu límit diari; omple la fitxa a mà o prova «Foto de la portada».'); return null; }
   const base=ol||gb, extra=(ol?gb:null)||{};
   const merged=Object.assign({}, base);
   for(const k of ['heightCm','thicknessMm','pages','categories','publisher','year','authors']){ if(!merged[k]||(Array.isArray(merged[k])&&!merged[k].length)) merged[k]=extra[k]; }
