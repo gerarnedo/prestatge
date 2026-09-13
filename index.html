@@ -66,8 +66,9 @@ nav.tabs button.active{color:var(--accent);font-weight:600}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:14px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
 .toast.show{opacity:1}
 /* scanner */
-#reader{width:100%;border-radius:12px;overflow:hidden;background:#000;min-height:60px}
-#reader video{width:100%!important;border-radius:12px}
+#reader{position:relative;width:100%;border-radius:12px;overflow:hidden;background:#000;min-height:60px}
+#reader video{width:100%;display:block;border-radius:12px}
+.scanband{position:absolute;left:6%;right:6%;top:50%;height:2px;transform:translateY(-1px);background:var(--bad);box-shadow:0 0 8px var(--bad);opacity:.85;pointer-events:none}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
 .seg button{flex:1 1 auto;min-width:0;padding:10px 6px;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.2}
 .seg button small{font-size:11px;color:var(--ink-2);font-weight:400}
@@ -142,8 +143,7 @@ dialog .wrap{padding:16px}
   <section class="view active" id="view-add">
     <div class="stack">
       <div class="card stack">
-        <div id="reader" hidden></div>
-        <div id="readerFile" hidden></div>
+        <div id="reader" hidden><video id="cam" playsinline muted></video><div class="scanband"></div></div>
         <div class="row between">
           <div class="row">
             <button class="primary" id="btnCam">Obre la càmera</button>
@@ -276,7 +276,7 @@ dialog .wrap{padding:16px}
 
 <dialog id="editDlg"><div class="wrap stack" id="editBody"></div></dialog>
 
-<script src="html5-qrcode.min.js"></script>
+<script src="zbar.js"></script>
 <script>
 'use strict';
 /* ---------- Model i persistència ---------- */
@@ -539,58 +539,114 @@ function showPlaced(b){
 function updateCount(){ const n=state.books.length, p=state.books.filter(isPending).length; $('#countLbl').textContent=n+' llibre'+(n===1?'':'s')+(p?' · '+p+' pendent'+(p===1?'':'s'):''); }
 
 /* --- Escàner --- */
-const scanner={ h5:null, fileScanner:null, running:false, lastCode:'', lastAt:0, hintTimer:null, torchOn:false,
-  formats(){ return [Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,Html5QrcodeSupportedFormats.CODE_128]; },
-  // Finestra ampla i baixa (un codi de barres és ample), càmera a màxima resolució i enfocament continu.
-  config(){ return {
-    fps:15,
-    qrbox:(w,h)=>{ const width=Math.round(Math.min(w*0.94,520)); return {width, height:Math.round(Math.max(90,Math.min(h*0.55,width*0.5)))}; },
-    videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]}
-  }; },
-  async start(){
-    if(!window.Html5Qrcode){ toast('No s\'ha carregat la llibreria d\'escaneig'); return; }
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('Aquest navegador no dona accés a la càmera (cal https).'); return; }
-    $('#reader').hidden=false;
-    this.h5=this.h5||new Html5Qrcode('reader',{formatsToSupport:this.formats(),experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
-    try{
-      await this.h5.start({facingMode:'environment'},this.config(),t=>this.onCode(t),()=>{});
-      this.running=true; $('#btnCam').hidden=true; $('#btnCamStop').hidden=false;
-      $('#camHint').textContent='Escanejant… omple l\'amplada amb el codi, a uns 15–20 cm.';
-      try{ const caps=this.h5.getRunningTrackCapabilities(); $('#btnTorch').hidden=!(caps&&'torch' in caps); }catch(e){}
-      clearTimeout(this.hintTimer);
-      this.hintTimer=setTimeout(()=>{ if(this.running) $('#camHint').textContent='Costa? Més llum, sense reflexos, el codi ben pla i horitzontal. O fes-ne una foto amb el botó de sota.'; },12000);
-    }catch(e){ $('#reader').hidden=true; toast('No s\'ha pogut obrir la càmera: '+(e&&e.message||e)); }
+const scanner={
+  stream:null, running:false, canvas:null, ctx:null, timer:null, lastCode:'', lastAt:0, torchOn:false, native:undefined, hintTimer:null,
+  el(){ return document.getElementById('cam'); },
+  // Lector: primer el detector natiu del navegador (Android/Chrome), si no, ZBar compilat a WebAssembly (funciona a iOS).
+  async decode(canvas,ctx){
+    if(this.native===undefined){
+      this.native=null;
+      if('BarcodeDetector' in window){
+        try{ const f=await BarcodeDetector.getSupportedFormats(); if(f.includes('ean_13')) this.native=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']}); }catch(e){}
+      }
+    }
+    if(this.native){
+      try{ const r=await this.native.detect(canvas); if(r&&r.length&&r[0].rawValue) return r[0].rawValue; }
+      catch(e){ this.native=null; }
+    }
+    if(window.zbarWasm){
+      try{
+        const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+        const syms=await zbarWasm.scanImageData(img);
+        if(syms&&syms.length){ const v=syms[0].decode(); if(v) return v; }
+      }catch(e){}
+    }
+    return null;
   },
-  async stop(){ clearTimeout(this.hintTimer); if(this.h5&&this.running){ try{ await this.h5.stop() }catch(e){} } this.running=false; this.torchOn=false; $('#reader').hidden=true; $('#btnCam').hidden=false; $('#btnCamStop').hidden=true; $('#btnTorch').hidden=true; $('#btnTorch').textContent='Llanterna'; $('#camHint').textContent='Apunta al codi de barres de la contraportada.'; },
-  pause(){ if(this.h5&&this.running){ try{ this.h5.pause(true) }catch(e){} } },
-  resume(){ if(this.h5&&this.running){ try{ this.h5.resume() }catch(e){} } },
+  frame(source,sw,sh,max){
+    if(!this.canvas){ this.canvas=document.createElement('canvas'); this.ctx=this.canvas.getContext('2d',{willReadFrequently:true}); }
+    const k=Math.min(1,max/sw); this.canvas.width=Math.round(sw*k); this.canvas.height=Math.round(sh*k);
+    this.ctx.drawImage(source,0,0,this.canvas.width,this.canvas.height);
+    return this.canvas;
+  },
+  async start(){
+    if(this.running) return;
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('Aquest navegador no dona accés a la càmera. Cal obrir l\'app per https.'); return; }
+    $('#btnCam').disabled=true;
+    try{ this.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false}); }
+    catch(e){
+      $('#btnCam').disabled=false;
+      const n=e&&e.name;
+      toast(n==='NotAllowedError'?'Has de donar permís de càmera a l\'app (als ajustos del navegador).':n==='NotFoundError'?'No s\'ha trobat cap càmera.':n==='NotReadableError'?'La càmera l\'està fent servir una altra app.':'No s\'ha pogut obrir la càmera: '+(e&&e.message||e));
+      return;
+    }
+    $('#btnCam').disabled=false; $('#reader').hidden=false;
+    const v=this.el(); v.srcObject=this.stream; v.setAttribute('playsinline',''); v.muted=true;
+    try{ await v.play(); }catch(e){}
+    const track=this.stream.getVideoTracks()[0];
+    try{ await track.applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){}
+    let caps={}; try{ caps=track.getCapabilities?track.getCapabilities():{}; }catch(e){}
+    $('#btnTorch').hidden=!('torch' in caps);
+    this.running=true; $('#btnCam').hidden=true; $('#btnCamStop').hidden=false;
+    $('#camHint').textContent='Escanejant… acosta el codi fins que ompli l\'amplada.';
+    clearTimeout(this.hintTimer);
+    this.hintTimer=setTimeout(()=>{ if(this.running) $('#camHint').textContent='Costa? Més llum, sense reflexos i el codi ben pla. O fes-ne una foto amb el botó de sota.'; },12000);
+    this.loop();
+  },
+  async loop(){
+    if(!this.running) return;
+    const v=this.el();
+    if(v&&v.videoWidth){
+      try{
+        const cv=this.frame(v,v.videoWidth,v.videoHeight,1280);
+        const code=await this.decode(cv,this.ctx);
+        if(code){ this.onCode(code); }
+      }catch(e){}
+    }
+    if(this.running) this.timer=setTimeout(()=>this.loop(),120);
+  },
+  async stop(){
+    this.running=false; clearTimeout(this.timer); clearTimeout(this.hintTimer);
+    if(this.stream){ this.stream.getTracks().forEach(t=>{ try{ t.stop() }catch(e){} }); this.stream=null; }
+    const v=this.el(); if(v) v.srcObject=null;
+    this.torchOn=false;
+    $('#reader').hidden=true; $('#btnCam').hidden=false; $('#btnCamStop').hidden=true; $('#btnTorch').hidden=true; $('#btnTorch').textContent='Llanterna';
+    $('#camHint').textContent='Apunta al codi de barres de la contraportada.';
+  },
+  pause(){ this.running=false; clearTimeout(this.timer); },
+  resume(){ if(this.stream&&!this.running){ this.running=true; this.loop(); } },
   async torch(){
-    const on=!this.torchOn;
-    try{ await this.h5.applyVideoConstraints({advanced:[{torch:on}]}); this.torchOn=on; $('#btnTorch').textContent=on?'Apaga la llanterna':'Llanterna'; }
+    const on=!this.torchOn, track=this.stream&&this.stream.getVideoTracks()[0];
+    if(!track) return;
+    try{ await track.applyConstraints({advanced:[{torch:on}]}); this.torchOn=on; $('#btnTorch').textContent=on?'Apaga la llanterna':'Llanterna'; }
     catch(e){ toast('Aquest mòbil no deixa encendre la llanterna des del navegador'); }
   },
-  // Alternativa quan la lectura en directe falla: una foto fixa es pot analitzar amb més calma.
+  // Alternativa quan la lectura en directe falla: una foto fixa es llegeix amb més resolució.
   async scanPhoto(file){
-    if(!window.Html5Qrcode) return;
-    const wasRunning=this.running; if(wasRunning) await this.stop();
+    const wasRunning=this.running; this.pause();
     $('#camHint').textContent='Llegint el codi de la foto…';
     try{
-      this.fileScanner=this.fileScanner||new Html5Qrcode('readerFile',{formatsToSupport:this.formats(),verbose:false});
-      const text=await this.fileScanner.scanFile(file,false);
-      this.lastCode=''; $('#camHint').textContent='Apunta al codi de barres de la contraportada.'; this.onCode(text);
+      const bmp=await createImageBitmap(file);
+      const cv=this.frame(bmp,bmp.width,bmp.height,2000);
+      this.lastCode='';
+      const code=await this.decode(cv,this.ctx);
+      $('#camHint').textContent=this.stream?'Escanejant…':'Apunta al codi de barres de la contraportada.';
+      if(code) this.onCode(code);
+      else toast('No s\'ha vist cap codi a la foto. Que surti sencer, enfocat i ben pla; si no, prova «Foto de la portada».');
     }catch(e){
       $('#camHint').textContent='Apunta al codi de barres de la contraportada.';
-      toast('No s\'ha vist cap codi a la foto. Que surti sencer, enfocat i ben pla; si no, prova «Foto de la portada».');
+      toast('No s\'ha pogut llegir la imatge: '+(e&&e.message||e));
     }
+    if(wasRunning) this.resume();
   },
   onCode(text){
     const code=cleanIsbn(text); const now=Date.now();
     if(code===this.lastCode && now-this.lastAt<4000) return;
     this.lastCode=code; this.lastAt=now;
     clearTimeout(this.hintTimer);
-    if(navigator.vibrate) navigator.vibrate(60);
+    if(navigator.vibrate) try{ navigator.vibrate(60) }catch(e){}
     if(isValidIsbn(code)&&(/^(978|979)/.test(code)||code.length===10)){ handleIsbn(code.length===10?isbn10to13(code):code); return; }
-    if(/^977\d{10}$/.test(code)){ // 977 = ISSN: revistes i publicacions periòdiques, que no són a les bases de llibres
+    if(/^977\d{10}$/.test(code)){ // 977 = ISSN: revistes, que no són a les bases de llibres
       toast('Codi de revista (ISSN). Omple la fitxa a mà.'); this.pause(); openNewBook({title:'',authors:[],categories:[],source:'codi de revista'},code); return; }
     toast('Codi llegit: '+code+'. No és un codi de llibre; prova «Foto de la portada».');
   }

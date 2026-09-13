@@ -13,6 +13,10 @@ Adreça: https://gerarnedo.github.io/prestatge/ (s'actualitza sola quan es fa pu
 
 Dues columnes de 95 cm d'ample útil, 223 cm d'alt, la dreta comença 7 cm amunt per l'escaló, taulons de 2 cm, sense tauló a dalt, i 40 cm reservats a baix per als arxivadors. Els nivells tenen alçada fixa i només poden ser de tres mides, les que es poden muntar al moble: 26,5 cm, 33 cm i 40 cm. Cada llibre es classifica en una d'elles. L'app només decideix quants nivells van a cada columna i on va cada tauló; l'espai que sobra queda com a nivell lliure a baix.
 
+## El lector de codis
+
+Fa servir el detector de codis del navegador quan hi és (Android/Chrome) i, si no, ZBar compilat a WebAssembly (`zbar.js`), que és el que funciona a iOS. Abans feia servir html5-qrcode, que té un error conegut i sense resoldre amb els codis EAN-13 a iPhone.
+
 ## Llibres sense codi de barres
 
 Botó «Foto de la portada»: fas una foto de la portada (o del llom) i la IA hi llegeix títol, autor i editorial, proposa gènere i mida, i busca la fitxa a Open Library. Cal la clau gratuïta de Groq (fa servir el model Qwen, que veu imatges). Revises la fitxa i deses.
