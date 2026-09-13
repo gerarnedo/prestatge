@@ -217,9 +217,11 @@ dialog .wrap{padding:16px}
         <div class="row between">
           <button id="btnAddCol">+ Afegeix columna</button>
         </div>
+        <p class="muted">Les tres alçades de muntatge possibles. Cada llibre es classifica en una d'elles i els nivells es munten amb aquestes mides.</p>
         <div class="grid3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-          <label class="f"><span>Nivell dels grans (cm)</span><input type="number" id="optLevelGran" min="10"></label>
-          <label class="f"><span>Nivell dels petits (cm)</span><input type="number" id="optLevelPetit" min="10"></label>
+          <label class="f"><span>Nivell petit (cm)</span><input type="number" id="optLevelPetit" min="10" step="0.5"></label>
+          <label class="f"><span>Nivell mitjà (cm)</span><input type="number" id="optLevelMitja" min="10" step="0.5"></label>
+          <label class="f"><span>Nivell gran (cm)</span><input type="number" id="optLevelGran" min="10" step="0.5"></label>
           <label class="f"><span>Gruix dels taulons (cm)</span><input type="number" id="optBoard" min="0.5" step="0.5"></label>
         </div>
         <h3>Regles d'ordenació</h3>
@@ -269,10 +271,16 @@ dialog .wrap{padding:16px}
 <script>
 'use strict';
 /* ---------- Model i persistència ---------- */
+// Tres mides, una per cada alçada que es pot muntar a la prestatgeria.
 const HEIGHTS = [
-  {id:'petit', name:'Petit', hint:'fins a 24 cm · novel·les, butxaca, text', cm:21, maxCm:24, rank:1},
-  {id:'gran',  name:'Gran',  hint:'més de 24 cm · il·lustrats, revistes',   cm:30, maxCm:35, rank:2},
+  {id:'petit', name:'Petit', opt:'levelPetit', def:26.5, cm:21, rank:1, exemples:'novel·les, butxaca, text'},
+  {id:'mitja', name:'Mitjà', opt:'levelMitja', def:33,   cm:29, rank:2, exemples:'il·lustrats, art, còmic'},
+  {id:'gran',  name:'Gran',  opt:'levelGran',  def:40,   cm:36, rank:3, exemples:'revistes, àlbums, enciclopèdies'},
 ];
+const CLEARANCE=1; // marge entre el llibre més alt i el tauló de sobre
+function levelCm(id){ const h=HEIGHTS.find(x=>x.id===id)||HEIGHTS[0]; return +state.opts[h.opt]||h.def; }
+function maxBookCm(id){ return levelCm(id)-CLEARANCE; }
+function heightHint(h){ return `fins a ${maxBookCm(h.id)} cm · nivell de ${levelCm(h.id)} cm`; }
 const OLD_HEIGHTS={butxaca:'petit',normal:'petit',gran:'gran',revista:'gran'};
 const DEFAULT_GENRES = ['Disseny','Dibuix','Il·lustració','Pintura','Escultura','Arquitectura','Fotografia','Art','Còmic','Novel·la','Poesia','Assaig','Text / manual','Infantil','Altres'];
 const GENRE_RULES = [
@@ -301,9 +309,9 @@ let state = store.load() || {
   books: [],
   columns: [],
   genres: DEFAULT_GENRES.slice(),
-  opts: {heightDir:'desc', alpha:'author', keepGroups:true, gbKey:'', boardCm:2, levelGran:40, levelPetit:25}
+  opts: {heightDir:'desc', alpha:'author', keepGroups:true, gbKey:'', boardCm:2, levelPetit:26.5, levelMitja:33, levelGran:40}
 };
-state.opts = Object.assign({heightDir:'desc', alpha:'author', keepGroups:true, gbKey:'', boardCm:2, levelGran:40, levelPetit:25}, state.opts||{});
+state.opts = Object.assign({heightDir:'desc', alpha:'author', keepGroups:true, gbKey:'', boardCm:2, levelPetit:26.5, levelMitja:33, levelGran:40}, state.opts||{});
 // La prestatgeria d'en Gerard: dues columnes de 95 cm, 223 cm d'alt, la dreta 7 cm amunt per un escaló, 40 cm a baix per als arxivadors.
 const DEFAULT_COLUMNS=[{name:'Esquerra',width:95,height:223,offset:0,reserved:40,reservedLabel:'Arxivadors'},{name:'Dreta',width:95,height:216,offset:7,reserved:40,reservedLabel:'Arxivadors'}];
 if(!Array.isArray(state.columns)||!state.columns.length){ state.columns=JSON.parse(JSON.stringify(DEFAULT_COLUMNS)); }
@@ -312,6 +320,12 @@ if(state.books.length && !state.updatedAt) state.updatedAt=Date.now(); // catàl
 if(!state.genres||!state.genres.length) state.genres = DEFAULT_GENRES.slice();
 // Migració: les quatre mides antigues passen a dues.
 for(const b of state.books){ if(b.heightClass && OLD_HEIGHTS[b.heightClass]) b.heightClass=OLD_HEIGHTS[b.heightClass]; }
+// De dues mides a tres: els que tenen alçada exacta es reclassifiquen; la resta de «grans» passen a «mitjà», que és el cas més habitual.
+if(!state.sizesV3){
+  state.opts.levelPetit=26.5; state.opts.levelMitja=33; state.opts.levelGran=40; // les tres alçades que es poden muntar
+  for(const b of state.books){ if(!b.heightClass) continue; if(b.heightCm) b.heightClass=heightClassFromCm(b.heightCm); else if(b.heightClass==='gran') b.heightClass='mitja'; }
+  state.sizesV3=true;
+}
 // Ajust de l'usuari que es guarda a part de l'estat perquè no vagi a les exportacions.
 const localKey=name=>({ get(){ try{ return localStorage.getItem(name)||'' }catch(e){ return '' } }, set(v){ try{ v?localStorage.setItem(name,v):localStorage.removeItem(name) }catch(e){} } });
 const secret=localKey('prestatge.aikey'), ghToken=localKey('prestatge.ghtoken'), gistId=localKey('prestatge.gist');
@@ -330,7 +344,7 @@ function isValidIsbn(s){
   return false;
 }
 function isbn10to13(s){ if(s.length!==10) return s; const core='978'+s.slice(0,9); let sum=0; for(let i=0;i<12;i++) sum+=(+core[i])*(i%2?3:1); return core+((10-sum%10)%10); }
-function heightClassFromCm(cm){ if(!cm) return ''; return cm<=24?'petit':'gran'; }
+function heightClassFromCm(cm){ if(!cm) return ''; const h=HEIGHTS.find(x=>cm<=maxBookCm(x.id)); return h?h.id:'gran'; }
 function guessGenre(cats){
   const txt=(cats||[]).join(' | ').toLowerCase();
   if(!txt) return '';
@@ -340,15 +354,15 @@ function guessGenre(cats){
 function volumeThickness(b){
   if(b.thicknessMm) return +b.thicknessMm;
   const p=+b.pages||0;
-  if(!p) return b.heightClass==='gran'?15:25;
+  if(!p) return b.heightClass==='gran'?15:b.heightClass==='mitja'?18:25;
   const hard=/hard|tapa dura|cartoné/i.test(b.format||'');
   return Math.round(p*0.065 + (hard?9:4));
 }
 function volumes(b){ return Math.max(1,parseInt(b.volumes)||1); }
 function estimateThickness(b){ return volumeThickness(b)*volumes(b); }
-function levelHeightFor(b){ return (b.heightClass==='gran')?(+state.opts.levelGran||40):(+state.opts.levelPetit||25); }
-function heightCm(b){ if(b.heightCm) return +b.heightCm; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.cm:21; }
-function neededCm(b){ if(b.heightCm) return +b.heightCm+1; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.maxCm:24; }
+function levelHeightFor(b){ return levelCm(b.heightClass||'petit'); }
+function heightCm(b){ if(b.heightCm) return +b.heightCm; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.cm:HEIGHTS[0].cm; }
+function neededCm(b){ if(b.heightCm) return +b.heightCm+CLEARANCE; return maxBookCm(b.heightClass||'petit')+CLEARANCE; }
 function positions(){ const {shelves}=placeBooks(); const m=new Map(); shelves.forEach(s=>s.books.forEach((b,i)=>m.set(b.id,{shelf:s.name,pos:i+1,prev:s.books[i-1]||null,next:s.books[i+1]||null,bottom:s.bottom,h:s.h,count:s.books.length}))); return m; }
 function recommendedShelfH(books){ if(!books.length) return 0; const need=Math.max(...books.map(neededCm)); const min=+state.opts.minShelfH||20, step=+state.opts.stepShelfH||5; return Math.max(min, Math.ceil((need-min)/step)*step+min); }
 const ARTICLES=/^(el|la|els|les|l'|un|una|uns|unes|the|a|an|los|las|le|les|der|die|das)\s+/i;
@@ -424,7 +438,7 @@ function placeBooks(){
   for(const col of cols){
     // Els nivells s'apilen des del reservat cap amunt: el primer (els grans) just sobre els arxivadors. L'espai que sobra queda a dalt, obert.
     let left=col.avail-col.used;
-    if(left>=(+state.opts.levelPetit||25)+board){ col.comps.push({books:[],used:0,h:left-board,free:true}); col.used=col.avail; left=0; }
+    if(left>=Math.min(...HEIGHTS.map(h=>levelCm(h.id)))+board){ col.comps.push({books:[],used:0,h:left-board,free:true}); col.used=col.avail; left=0; }
     col.slack=left;
     col.reservedBottom=col.offset+board; col.reservedTop=col.reservedBottom+col.reserved;
     let y=col.reserved?col.reservedTop+board:col.reservedBottom;
@@ -577,8 +591,8 @@ function bookForm(b,isNew){
     </div>
     <div>
       <label class="f"><span>1 · Mida ${b.heightCm?'(la font diu '+esc(b.heightCm)+' cm)':''}</span></label>
-      <div class="seg" data-field="heightClass">${HEIGHTS.map(h=>`<button type="button" data-v="${h.id}" class="${h.id===b.heightClass?'on':''}">${h.name}<small>${h.hint}</small></button>`).join('')}</div>
-      <div class="muted" style="margin-top:4px">Si és gran, posa l'alçada exacta a «Més camps»: així la recomanació d'alçada del prestatge és ajustada.</div>
+      <div class="seg" data-field="heightClass">${HEIGHTS.map(h=>`<button type="button" data-v="${h.id}" class="${h.id===b.heightClass?'on':''}">${h.name}<small>${heightHint(h)}</small></button>`).join('')}</div>
+      <div class="muted" style="margin-top:4px">Si dubtes entre dues mides, mesura'l i posa l'alçada exacta a «Més camps».</div>
     </div>
     <div class="grid2">
       <label class="f"><span>2 · Gènere</span><div class="row" style="gap:6px;flex-wrap:nowrap"><select name="genre" style="flex:1"><option value="">— tria —</option>${opts}</select><button type="button" class="small" data-act="ai-genre" title="Suggereix el gènere amb IA" ${secret.get()?'':'hidden'}>IA</button></div></label>
@@ -688,7 +702,7 @@ function renderShelves(){
     row.querySelector('[data-del]').addEventListener('click',()=>{ if(state.columns.length>1){ state.columns.splice(i,1); store.save(); renderShelves(); } });
     box.appendChild(row);
   });
-  $('#optBoard').value=state.opts.boardCm; $('#optLevelGran').value=state.opts.levelGran; $('#optLevelPetit').value=state.opts.levelPetit;
+  $('#optBoard').value=state.opts.boardCm; $('#optLevelGran').value=state.opts.levelGran; $('#optLevelMitja').value=state.opts.levelMitja; $('#optLevelPetit').value=state.opts.levelPetit;
   $('#optHeightDir').value=state.opts.heightDir; $('#optAlpha').value=state.opts.alpha; $('#optKeepGroups').checked=!!state.opts.keepGroups; $('#optGbKey').value=state.opts.gbKey||''; $('#optAiKey').value=secret.get(); $('#optAiModel').value=ai.model(); $('#optGhToken').value=ghToken.get();
   const go=$('#genreOrder'); go.innerHTML='';
   state.genres.forEach((g,i)=>{
@@ -703,7 +717,7 @@ function renderShelves(){
 $('#btnAddCol').addEventListener('click',()=>{ const last=state.columns[state.columns.length-1]||DEFAULT_COLUMNS[0]; state.columns.push({name:'Columna '+(state.columns.length+1),width:last.width,height:last.height,offset:0,reserved:0,reservedLabel:''}); store.save(); renderShelves(); });
 $('#btnAddGenre').addEventListener('click',()=>{ const v=$('#newGenre').value.trim(); if(!v) return; if(state.genres.some(g=>coll.compare(g,v)===0)){ toast('Ja existeix'); return; } state.genres.push(v); $('#newGenre').value=''; store.save(); renderShelves(); });
 $('#optAiKey').addEventListener('change',e=>{ secret.set(e.target.value.trim()); toast(e.target.value.trim()?'Clau desada en aquest dispositiu':'Clau esborrada'); });
-for(const [id,k,prop] of [['#optHeightDir','heightDir','value'],['#optAlpha','alpha','value'],['#optKeepGroups','keepGroups','checked'],['#optGbKey','gbKey','value'],['#optBoard','boardCm','value'],['#optLevelGran','levelGran','value'],['#optLevelPetit','levelPetit','value'],['#optAiModel','aiModel','value']]){
+for(const [id,k,prop] of [['#optHeightDir','heightDir','value'],['#optAlpha','alpha','value'],['#optKeepGroups','keepGroups','checked'],['#optGbKey','gbKey','value'],['#optBoard','boardCm','value'],['#optLevelGran','levelGran','value'],['#optLevelMitja','levelMitja','value'],['#optLevelPetit','levelPetit','value'],['#optAiModel','aiModel','value']]){
   $(id).addEventListener('change',e=>{ state.opts[k]=e.target[prop]; store.save(); });
 }
 
@@ -769,7 +783,7 @@ function renderOrder(){
     let html=`<h3><span>${esc(s.name)}</span><span class="muted" style="font-variant-numeric:tabular-nums">${(s.used/10).toFixed(0)} / ${s.width} cm</span></h3>
       <div class="fill"><i class="${over?'over':''}" style="width:${pct}%"></i></div>`;
     if(s.books.length){ const tall=s.books.reduce((m,b)=>neededCm(b)>neededCm(m)?b:m,s.books[0]);
-      html+=`<p class="rec"><b>Tauló a ${s.bottom} cm del terra · nivell de ${s.h} cm (${s.books[0].heightClass==='gran'?'grans':'petits'}).</b> <span class="muted">El llibre més alt és «${esc(tall.title)}» (${tall.heightCm?tall.heightCm+' cm':HEIGHTS.find(h=>h.id===(tall.heightClass||'petit')).name.toLowerCase()+', fins a '+neededCm(tall)+' cm'}).</span></p>`; }
+      html+=`<p class="rec"><b>Tauló a ${s.bottom} cm del terra · nivell de ${s.h} cm (${esc((HEIGHTS.find(h=>h.id===(s.books[0].heightClass||'petit'))||HEIGHTS[0]).name.toLowerCase())}).</b> <span class="muted">El llibre més alt és «${esc(tall.title)}» (${tall.heightCm?tall.heightCm+' cm':'fins a '+maxBookCm(tall.heightClass||'petit')+' cm'}).</span></p>`; }
     if(!s.books.length){ html+=s.free?`<p class="rec"><b>Nivell lliure de ${s.h} cm, tauló a ${s.bottom} cm del terra.</b> <span class="muted">Espai per a llibres nous.</span></p>`:'<p class="muted">Buit.</p>'; }
     else{
       const maxH=Math.max(...s.books.map(heightCm));
@@ -784,7 +798,7 @@ function renderOrder(){
     div.innerHTML=html; lv.appendChild(div);
   });
   if(overflow.length){ const mm=overflow.reduce((a,b)=>a+estimateThickness(b),0); const d=document.createElement('div'); d.className='card'; d.innerHTML=`<h3>No hi caben</h3><p class="muted">S'ha acabat l'alçada de les columnes: queden fora uns ${(mm/10).toFixed(0)} cm de llom. Aquests llibres no tenen lloc (treu-ne, redueix el reservat o afegeix una columna):</p><ol class="order">`+overflow.map(b=>'<li><div>'+esc(b.title)+'<div class="g">'+esc((b.authors||[]).join('; '))+' · '+estimateThickness(b)+' mm</div></div></li>').join('')+'</ol>'; out.appendChild(d); }
-  if(noFit.length){ const d=document.createElement('div'); d.className='card'; d.innerHTML=`<h3>Massa alts per al seu nivell</h3><p class="muted">Els nivells fan ${state.opts.levelGran} cm (grans) i ${state.opts.levelPetit} cm (petits). Aquests llibres no hi caben drets; posa'ls ajaguts o canvia'ls la mida:</p><ul>`+noFit.map(b=>'<li>'+esc(b.title)+' ('+heightCm(b)+' cm)</li>').join('')+'</ul>'; out.appendChild(d); }
+  if(noFit.length){ const d=document.createElement('div'); d.className='card'; d.innerHTML=`<h3>Massa alts per al seu nivell</h3><p class="muted">Els nivells fan ${HEIGHTS.map(h=>levelCm(h.id)+' cm ('+h.name.toLowerCase()+')').join(', ')}. Aquests llibres no hi caben drets; posa'ls ajaguts o canvia'ls la mida:</p><ul>`+noFit.map(b=>'<li>'+esc(b.title)+' ('+heightCm(b)+' cm)</li>').join('')+'</ul>'; out.appendChild(d); }
   const lg=document.createElement('div'); lg.className='legend'; lg.innerHTML=[...usedGenres].map(g=>`<span class="pill"><i style="background:${genreColor(g)}"></i>${esc(g)}</span>`).join(''); out.appendChild(lg);
 }
 $('#btnPrint').addEventListener('click',()=>{ $('#guide').open=true; setTimeout(()=>window.print(),50); });
@@ -911,6 +925,8 @@ const ai={
     if(e.message==='Failed to fetch') return 'No s\'ha pogut connectar amb l\'API (sense connexió?)';
     return 'Error de l\'assistent: '+e.message;
   },
+  sizes(){ return HEIGHTS.map(h=>h.id); },
+  sizeSpec(){ return HEIGHTS.map(h=>`«${h.id}» fins a ${maxBookCm(h.id)} cm (${h.exemples})`).join(', '); },
   // Files del catàleg amb un número curt (#n) que el model pot citar; el mapa n→id es refà a cada consulta.
   rows(){ const pos=positions(); this.ids=new Map(); return sortedBooks().map((b,i)=>{ const p=pos.get(b.id); this.ids.set(String(i+1),b.id); return {n:i+1,b,shelf:p?p.shelf:'fora (no hi cap)',pos:p?p.pos:'-'}; }); },
   line(r){ return `#${r.n} | ${r.b.title} | ${(r.b.authors||[]).join('; ')} | ${r.b.heightClass||'?'} | ${r.b.genre||'?'} | ${r.shelf} | pos ${r.pos}`; },
@@ -919,15 +935,15 @@ const ai={
     const {shelves,overflow}=placeBooks();
     const rec=shelves.map(s=>`${s.name}: nivell de ${s.h} cm d'alt amb el tauló a ${s.bottom} cm del terra, ${(s.used/10).toFixed(0)} de ${s.width} cm ocupats, ${s.books.length} llibres`).join('\n')||'cap nivell (sense llibres)';
     const gc=state.genres.map(g=>`${g} (${state.books.filter(b=>b.genre===g).length})`).join(', ');
-    const n=state.books.length, grans=state.books.filter(b=>b.heightClass==='gran').length, petits=state.books.filter(b=>b.heightClass==='petit').length, pend=state.books.filter(isPending).length;
+    const n=state.books.length, perMida=HEIGHTS.map(h=>`${state.books.filter(b=>b.heightClass===h.id).length} ${h.name.toLowerCase()}`).join(', '), pend=state.books.filter(isPending).length;
     return `Ets l'assistent de «Prestatge», una app que ordena la prestatgeria de casa d'en Gerard. Respon sempre en català, breu i concret.
 
-Regles d'ordenació, en aquest ordre: 1) mida (${state.opts.heightDir==='desc'?'grans primer':'petits primer'}; només hi ha dues mides: petit fins a 24 cm i gran més de 24 cm), 2) gènere segons aquest ordre: ${state.genres.join(' → ')}, 3) alfabètic per ${state.opts.alpha==='author'?'cognom del primer autor':'títol'}. Els nivells s'omplen de baix a dalt començant just sobre els arxivadors (el nivell 1 de cada columna és el de més avall); la posició és l'ordre dins del nivell començant per l'esquerra.
+Regles d'ordenació, en aquest ordre: 1) mida (${state.opts.heightDir==='desc'?'grans primer':'petits primer'}; hi ha tres mides, una per cada alçada de muntatge: ${ai.sizeSpec()}), 2) gènere segons aquest ordre: ${state.genres.join(' → ')}, 3) alfabètic per ${state.opts.alpha==='author'?'cognom del primer autor':'títol'}. Els nivells s'omplen de baix a dalt començant just sobre els arxivadors (el nivell 1 de cada columna és el de més avall); la posició és l'ordre dins del nivell començant per l'esquerra.
 
 Prestatgeria: un moble amb ${state.columns.length} columnes (${state.columns.map(c=>c.name+' '+c.width+'×'+c.height+' cm').join(', ')}); el nivell de baix de cada columna és reservat (${state.columns.map(c=>c.reservedLabel).filter(Boolean).join('/')||'res'}). Els nivells de llibres es numeren de baix a dalt dins de cada columna:
 ${rec}${overflow.length?`\nNo hi caben: ${overflow.length} llibres`:''}
 
-Catàleg: ${n} llibres (${grans} grans, ${petits} petits, ${pend} pendents de classificar). Gèneres i quants llibres té cadascun: ${gc}.
+Catàleg: ${n} llibres (${perMida}, ${pend} pendents de classificar). Gèneres i quants llibres té cadascun: ${gc}.
 
 No tens el catàleg sencer al context. Fes servir les eines: cerca_llibres per trobar un llibre (funciona amb títols aproximats), llista_llibres per veure grups (filtre "pendents", un gènere, un prestatge o "tots", amb paginació). Cada llibre té un número curt #n; cita'l només si cal.
 Què pots fer:
@@ -943,7 +959,7 @@ Quan proposis canvis, l'usuari els veurà i decidirà si els aplica; explica en 
     {name:'proposar_canvis',description:'Proposa canvis al catàleg o a la configuració. L\'usuari els revisa i els aplica manualment.',schema:{type:'object',additionalProperties:false,properties:{
       motiu:{type:'string',description:'Una frase explicant la proposta'},
       ordreGeneres:{type:'array',items:{type:'string'},description:'Nou ordre complet dels gèneres; buit si no canvia'},
-      llibres:{type:'array',description:'Canvis per llibre; buit si no n\'hi ha',items:{type:'object',additionalProperties:false,properties:{id:{type:'string',description:'Número del llibre, p. ex. "#12"'},genre:{type:'string',description:'Gènere de la llista, o cadena buida per no canviar-lo'},heightClass:{type:'string',enum:['petit','gran','']}},required:['id','genre','heightClass']}}
+      llibres:{type:'array',description:'Canvis per llibre; buit si no n\'hi ha',items:{type:'object',additionalProperties:false,properties:{id:{type:'string',description:'Número del llibre, p. ex. "#12"'},genre:{type:'string',description:'Gènere de la llista, o cadena buida per no canviar-lo'},heightClass:{type:'string',enum:this.sizes().concat([''])}},required:['id','genre','heightClass']}}
     },required:['motiu','ordreGeneres','llibres']}}
   ]; },
   runTool(name,args){
@@ -986,8 +1002,8 @@ Quan proposis canvis, l'usuari els veurà i decidirà si els aplica; explica en 
   },
   async classify(b){
     const r=await this.call({maxTokens:600,effort:'low',
-      system:`Classifiques llibres per a una prestatgeria de casa. Gèneres possibles: ${state.genres.join(', ')}. Mides: «petit» (fins a 24 cm d'alçada: novel·les, butxaca, text, assaig) o «gran» (més de 24 cm: llibres il·lustrats, d'art, disseny, fotografia, revistes). Respon només amb l'eina.`,
-      tools:[{name:'classifica',description:'Retorna la classificació',schema:{type:'object',additionalProperties:false,properties:{genre:{type:'string',enum:state.genres.concat([''])},heightClass:{type:'string',enum:['petit','gran','']},reason:{type:'string',description:'Motiu en poques paraules, en català'}},required:['genre','heightClass','reason']}}],
+      system:`Classifiques llibres per a una prestatgeria de casa. Gèneres possibles: ${state.genres.join(', ')}. Mides segons l'alçada del llibre: ${this.sizeSpec()}. Respon només amb l'eina.`,
+      tools:[{name:'classifica',description:'Retorna la classificació',schema:{type:'object',additionalProperties:false,properties:{genre:{type:'string',enum:state.genres.concat([''])},heightClass:{type:'string',enum:this.sizes().concat([''])},reason:{type:'string',description:'Motiu en poques paraules, en català'}},required:['genre','heightClass','reason']}}],
       force:'classifica',
       messages:[{role:'user',text:`Títol: ${b.title}\nAutors: ${b.authors||''}\nEditorial: ${b.publisher||''}\nPàgines: ${b.pages||''}\nMatèries de la font: ${(b.categories||[]).join(', ')||'cap'}\nSi no estàs segur de la mida, deixa-la buida.`}]});
     const c=r.calls[0]; return c?c.args:{};
@@ -995,8 +1011,8 @@ Quan proposis canvis, l'usuari els veurà i decidirà si els aplica; explica en 
   // Reconeix un llibre a partir de la foto de la portada (o del llom)
   async identifyCover(imageB64){
     const r=await this.call({maxTokens:800,effort:'low',
-      system:`Identifiques llibres a partir de la foto de la portada o del llom, per a una prestatgeria de casa. Llegeix el títol, l'autor i l'editorial que es veuen a la foto; si reconeixes el llibre, completa l'any aproximat. Gèneres possibles: ${state.genres.join(', ')}. Mides: «petit» (fins a 24 cm d'alçada: novel·les, butxaca, text, assaig) o «gran» (més de 24 cm: il·lustrats, art, disseny, fotografia, revistes, enciclopèdies). Respon només amb l'eina.`,
-      tools:[{name:'fitxa_portada',description:'Fitxa del llibre reconegut',schema:{type:'object',additionalProperties:false,properties:{title:{type:'string'},authors:{type:'string',description:'Autors separats per punt i coma; buit si no es veu'},publisher:{type:'string'},year:{type:'string'},genre:{type:'string',enum:state.genres.concat([''])},heightClass:{type:'string',enum:['petit','gran','']},confidence:{type:'string',enum:['alta','mitjana','baixa']},note:{type:'string',description:'Dubtes en poques paraules, en català'}},required:['title','authors','publisher','year','genre','heightClass','confidence','note']}}],
+      system:`Identifiques llibres a partir de la foto de la portada o del llom, per a una prestatgeria de casa. Llegeix el títol, l'autor i l'editorial que es veuen a la foto; si reconeixes el llibre, completa l'any aproximat. Gèneres possibles: ${state.genres.join(', ')}. Mides segons l'alçada del llibre: ${this.sizeSpec()}. Respon només amb l'eina.`,
+      tools:[{name:'fitxa_portada',description:'Fitxa del llibre reconegut',schema:{type:'object',additionalProperties:false,properties:{title:{type:'string'},authors:{type:'string',description:'Autors separats per punt i coma; buit si no es veu'},publisher:{type:'string'},year:{type:'string'},genre:{type:'string',enum:state.genres.concat([''])},heightClass:{type:'string',enum:this.sizes().concat([''])},confidence:{type:'string',enum:['alta','mitjana','baixa']},note:{type:'string',description:'Dubtes en poques paraules, en català'}},required:['title','authors','publisher','year','genre','heightClass','confidence','note']}}],
       force:'fitxa_portada',
       messages:[{role:'user',text:'Aquesta és la foto. Omple la fitxa. Si el títol no es llegeix, posa el que hi vegis i confidence "baixa".',image:imageB64}]});
     const c=r.calls[0]; return c?c.args:{};
