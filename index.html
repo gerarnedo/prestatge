@@ -205,9 +205,12 @@ dialog .wrap{padding:16px}
       </div>
       <div class="card stack">
         <h2>Assistent IA</h2>
-        <label class="f"><span>Clau de l'API d'Anthropic</span><input type="password" id="optAiKey" placeholder="sk-ant-…" autocomplete="off"></label>
-        <label class="f"><span>Model</span><select id="optAiModel"><option value="claude-opus-5">Claude Opus 5 (recomanat)</option><option value="claude-sonnet-5">Claude Sonnet 5 (més barat)</option><option value="claude-haiku-4-5">Claude Haiku 4.5 (el més barat)</option></select></label>
-        <p class="muted">Cada pregunta envia el catàleg sencer al model i es cobra al teu compte d'Anthropic: amb uns 300 llibres, pocs cèntims per pregunta. La clau viu només al navegador d'aquest dispositiu.</p>
+        <label class="f"><span>Model</span><select id="optAiModel">
+          <optgroup label="Google Gemini · gratuït, sense targeta"><option value="gemini-2.5-flash">Gemini 2.5 Flash (recomanat)</option><option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (més límit diari)</option></optgroup>
+          <optgroup label="Anthropic · de pagament"><option value="claude-opus-5">Claude Opus 5</option><option value="claude-sonnet-5">Claude Sonnet 5</option><option value="claude-haiku-4-5">Claude Haiku 4.5</option></optgroup>
+        </select></label>
+        <label class="f"><span>Clau de l'API del proveïdor triat</span><input type="password" id="optAiKey" placeholder="AIza… (Gemini) o sk-ant-… (Anthropic)" autocomplete="off"></label>
+        <p class="muted"><b>Gratuït:</b> crea una clau a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> amb el teu compte de Google, sense targeta. El nivell gratuït dona uns centenars de preguntes al dia i Google pot fer servir el que hi enviïs per millorar els seus models. La clau viu només al navegador d'aquest dispositiu i no s'exporta.</p>
       </div>
       <div class="card stack">
         <h2>Fonts de dades</h2>
@@ -223,7 +226,8 @@ dialog .wrap{padding:16px}
       <div class="card stack">
         <h2>Assistent</h2>
         <p class="muted">Pregunta on és un llibre, demana que classifiqui els pendents o que et proposi un ordre de gèneres millor. L'assistent veu tot el catàleg amb les posicions calculades i només canvia coses si tu ho aproves.</p>
-        <p class="muted" id="aiNoKey">Per fer-lo servir cal una clau de l'API d'Anthropic. Es desa només en aquest dispositiu i no s'inclou a les exportacions. Posa-la a <b>Prestatgeria → Assistent IA</b>.</p>
+        <p class="muted" id="aiNoKey">Per fer servir el xat cal una clau d'API gratuïta de Google Gemini. Posa-la a <b>Prestatgeria → Assistent IA</b>. Es desa només en aquest dispositiu.</p>
+        <div class="row"><button class="small" id="btnCopyCatalog">Copia el catàleg per enganxar-lo en un xat</button><span class="muted">Sense clau: enganxa-ho a l'app gratuïta de Claude, ChatGPT o Gemini i pregunta-hi.</span></div>
       </div>
       <div class="chips" id="aiChips">
         <button class="small">On tinc «Sapiens»?</button>
@@ -634,7 +638,7 @@ function renderShelves(){
     row.querySelector('[data-del]').addEventListener('click',()=>{ state.shelves.splice(i,1); store.save(); renderShelves(); });
     box.appendChild(row);
   });
-  $('#optHeightDir').value=state.opts.heightDir; $('#optAlpha').value=state.opts.alpha; $('#optKeepGroups').checked=!!state.opts.keepGroups; $('#optHeightBreaks').checked=!!state.opts.heightBreaks; $('#optGbKey').value=state.opts.gbKey||''; $('#optMinH').value=state.opts.minShelfH; $('#optStepH').value=state.opts.stepShelfH; $('#optAiKey').value=secret.get(); $('#optAiModel').value=state.opts.aiModel||'claude-opus-5';
+  $('#optHeightDir').value=state.opts.heightDir; $('#optAlpha').value=state.opts.alpha; $('#optKeepGroups').checked=!!state.opts.keepGroups; $('#optHeightBreaks').checked=!!state.opts.heightBreaks; $('#optGbKey').value=state.opts.gbKey||''; $('#optMinH').value=state.opts.minShelfH; $('#optStepH').value=state.opts.stepShelfH; $('#optAiKey').value=secret.get(); $('#optAiModel').value=ai.model();
   const go=$('#genreOrder'); go.innerHTML='';
   state.genres.forEach((g,i)=>{
     const n=state.books.filter(b=>b.genre===g).length;
@@ -690,23 +694,48 @@ function renderOrder(){
 }
 $('#btnPrint').addEventListener('click',()=>window.print());
 
-/* ---------- Assistent: crida directa a l'API de Claude des del navegador amb la clau de l'usuari ---------- */
+/* ---------- Assistent: crida directa a l'API del proveïdor (Gemini gratuït o Anthropic) des del navegador amb la clau de l'usuari ---------- */
 const ai={
-  url:'https://api.anthropic.com/v1/messages',
-  model(){ return state.opts.aiModel||'claude-opus-5'; },
-  headers(){ return {'content-type':'application/json','x-api-key':secret.get(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','anthropic-beta':'server-side-fallback-2026-07-01'}; },
-  async call(body){
+  model(){ const m=state.opts.aiModel||''; return /^(gemini|claude)/.test(m)?m:'gemini-2.5-flash'; },
+  provider(){ return /^gemini/.test(this.model())?'gemini':'anthropic'; },
+  // Petició neutra: {system, messages (historial neutre), tools:[{name,description,schema}], force?, maxTokens, effort}
+  async call(req){
     if(!secret.get()) throw new Error('nokey');
-    const r=await fetch(this.url,{method:'POST',headers:this.headers(),body:JSON.stringify(Object.assign({model:this.model(),fallbacks:'default'},body))});
+    return this.provider()==='gemini' ? this.callGemini(req) : this.callAnthropic(req);
+  },
+  async post(url,headers,body){
+    const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body)});
     if(!r.ok){ let m=''; try{ m=(await r.json()).error?.message||'' }catch(e){} const e=new Error(m||('HTTP '+r.status)); e.status=r.status; throw e; }
-    const j=await r.json();
+    return r.json();
+  },
+  async callAnthropic(req){
+    const msgs=req.messages.map(m=> m.role==='user'?{role:'user',content:m.text}
+      : m.role==='assistant'?{role:'assistant',content:[...(m.text?[{type:'text',text:m.text}]:[]),...m.calls.map(c=>({type:'tool_use',id:c.id,name:c.name,input:c.args}))]}
+      : {role:'user',content:m.results.map(r=>({type:'tool_result',tool_use_id:r.id,content:r.text}))});
+    const body={model:this.model(),fallbacks:'default',max_tokens:req.maxTokens,output_config:{effort:req.effort},system:[{type:'text',text:req.system,cache_control:{type:'ephemeral'}}],tools:req.tools.map(t=>({name:t.name,description:t.description,strict:true,input_schema:t.schema})),messages:msgs};
+    if(req.force) body.tool_choice={type:'tool',name:req.force};
+    const j=await this.post('https://api.anthropic.com/v1/messages',{'content-type':'application/json','x-api-key':secret.get(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','anthropic-beta':'server-side-fallback-2026-07-01'},body);
     if(j.stop_reason==='refusal') throw new Error('refusal');
-    return j;
+    return {text:j.content.filter(c=>c.type==='text').map(c=>c.text).join('\n'), calls:j.content.filter(c=>c.type==='tool_use').map(c=>({id:c.id,name:c.name,args:c.input})), inp:(j.usage?.input_tokens||0)+(j.usage?.cache_read_input_tokens||0)+(j.usage?.cache_creation_input_tokens||0), out:j.usage?.output_tokens||0};
+  },
+  async callGemini(req){
+    const strip=s=>{ if(Array.isArray(s)) return s.map(strip); if(s&&typeof s==='object'){ const o={}; for(const k in s){ if(k==='additionalProperties') continue; o[k]=strip(s[k]); } return o; } return s; };
+    const contents=req.messages.map(m=> m.role==='user'?{role:'user',parts:[{text:m.text}]}
+      : m.role==='assistant'?{role:'model',parts:[...(m.text?[{text:m.text}]:[]),...m.calls.map(c=>({functionCall:{name:c.name,args:c.args}}))].concat(!m.text&&!m.calls.length?[{text:'…'}]:[])}
+      : {role:'user',parts:m.results.map(r=>({functionResponse:{name:r.name,response:{result:r.text}}}))});
+    const body={systemInstruction:{parts:[{text:req.system}]},contents,generationConfig:{maxOutputTokens:req.maxTokens,temperature:0.3}};
+    if(req.tools.length){ body.tools=[{functionDeclarations:req.tools.map(t=>({name:t.name,description:t.description,parameters:strip(t.schema)}))}]; if(req.force) body.toolConfig={functionCallingConfig:{mode:'ANY',allowedFunctionNames:[req.force]}}; }
+    const j=await this.post(`https://generativelanguage.googleapis.com/v1beta/models/${this.model()}:generateContent`,{'content-type':'application/json','x-goog-api-key':secret.get()},body);
+    const c=j.candidates&&j.candidates[0]; if(!c){ throw new Error(j.promptFeedback&&j.promptFeedback.blockReason?'refusal':'Resposta buida del model'); }
+    const parts=(c.content&&c.content.parts)||[];
+    return {text:parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join('\n'), calls:parts.filter(p=>p.functionCall).map(p=>({id:uid(),name:p.functionCall.name,args:p.functionCall.args||{}})), inp:j.usageMetadata?.promptTokenCount||0, out:(j.usageMetadata?.candidatesTokenCount||0)+(j.usageMetadata?.thoughtsTokenCount||0)};
   },
   errMsg(e){
+    const g=this.provider()==='gemini';
     if(e.message==='nokey') return 'Cal la clau de l\'API a Prestatgeria → Assistent IA';
-    if(e.status===401) return 'La clau de l\'API no és vàlida';
-    if(e.status===429) return 'Has superat el límit de peticions. Espera un moment.';
+    if(e.status===401||e.status===403||/API key not valid/i.test(e.message)) return 'La clau de l\'API no és vàlida per al model triat';
+    if(e.status===429) return g?'Has arribat al límit gratuït de Gemini (per minut o per avui). Espera una mica o prova Flash-Lite.':'Has superat el límit de peticions. Espera un moment.';
+    if(e.status===404) return 'El model triat no està disponible amb aquesta clau';
     if(e.status===400) return 'L\'API ha rebutjat la petició: '+e.message;
     if(e.message==='refusal') return 'El model ha declinat respondre.';
     if(e.message==='Failed to fetch') return 'No s\'ha pogut connectar amb l\'API (sense connexió?)';
@@ -736,24 +765,23 @@ Què pots fer:
 - Recomanar millores d'ordenació, detectar duplicats, gèneres mal posats o noms d'autor inconsistents.
 Quan facis servir l'eina, l'usuari veurà la proposta i decidirà si l'aplica; explica en una frase què proposes i per què.`;
   },
-  tools(){ return [{name:'proposar_canvis',description:'Proposa canvis al catàleg o a la configuració. L\'usuari els revisa i els aplica manualment.',strict:true,input_schema:{type:'object',additionalProperties:false,properties:{
+  tools(){ return [{name:'proposar_canvis',description:'Proposa canvis al catàleg o a la configuració. L\'usuari els revisa i els aplica manualment.',schema:{type:'object',additionalProperties:false,properties:{
       motiu:{type:'string',description:'Una frase explicant la proposta'},
       ordreGeneres:{type:'array',items:{type:'string'},description:'Nou ordre complet dels gèneres; buit si no canvia'},
       llibres:{type:'array',description:'Canvis per llibre; buit si no n\'hi ha',items:{type:'object',additionalProperties:false,properties:{id:{type:'string'},genre:{type:'string',description:'Gènere de la llista, o cadena buida per no canviar-lo'},heightClass:{type:'string',enum:['petit','gran','']}},required:['id','genre','heightClass']}}
     },required:['motiu','ordreGeneres','llibres']}}]; },
   history:[], usage:{inp:0,out:0},
   async chat(text,onUpdate){
-    this.history.push({role:'user',content:text});
+    this.history.push({role:'user',text});
     const proposals=[]; let finalText='';
     for(let round=0;round<4;round++){
-      const j=await this.call({max_tokens:8000,output_config:{effort:'medium'},system:[{type:'text',text:this.system(),cache_control:{type:'ephemeral'}}],tools:this.tools(),messages:this.history});
-      this.usage.inp+=(j.usage?.input_tokens||0)+(j.usage?.cache_read_input_tokens||0)+(j.usage?.cache_creation_input_tokens||0); this.usage.out+=j.usage?.output_tokens||0;
-      this.history.push({role:'assistant',content:j.content});
-      const t=j.content.filter(c=>c.type==='text').map(c=>c.text).join('\n').trim(); if(t) finalText+=(finalText?'\n\n':'')+t;
-      const uses=j.content.filter(c=>c.type==='tool_use');
-      if(j.stop_reason!=='tool_use'||!uses.length) break;
-      const results=uses.map(u=>{ const prop=this.parseProposal(u.input); proposals.push(prop); return {type:'tool_result',tool_use_id:u.id,content:prop.items.length?`Proposta registrada amb ${prop.items.length} canvis. L'usuari la veu i pot aplicar-la.`:'La proposta no conté cap canvi aplicable.'}; });
-      this.history.push({role:'user',content:results});
+      const r=await this.call({system:this.system(),messages:this.history,tools:this.tools(),maxTokens:8000,effort:'medium'});
+      this.usage.inp+=r.inp; this.usage.out+=r.out;
+      this.history.push({role:'assistant',text:r.text,calls:r.calls});
+      const t=r.text.trim(); if(t) finalText+=(finalText?'\n\n':'')+t;
+      if(!r.calls.length) break;
+      const results=r.calls.map(c=>{ const prop=this.parseProposal(c.args||{}); proposals.push(prop); return {id:c.id,name:c.name,text:prop.items.length?`Proposta registrada amb ${prop.items.length} canvis. L'usuari la veu i pot aplicar-la.`:'La proposta no conté cap canvi aplicable.'}; });
+      this.history.push({role:'tool',results});
       if(onUpdate) onUpdate(finalText,proposals);
     }
     return {text:finalText,proposals};
@@ -772,14 +800,19 @@ Quan facis servir l'eina, l'usuari veurà la proposta i decidirà si l'aplica; e
     prop.applied=true; store.save(); updateCount();
   },
   async classify(b){
-    const j=await this.call({max_tokens:400,output_config:{effort:'low'},
+    const r=await this.call({maxTokens:600,effort:'low',
       system:`Classifiques llibres per a una prestatgeria de casa. Gèneres possibles: ${state.genres.join(', ')}. Mides: «petit» (fins a 24 cm d'alçada: novel·les, butxaca, text, assaig) o «gran» (més de 24 cm: llibres il·lustrats, d'art, disseny, fotografia, revistes). Respon només amb l'eina.`,
-      tools:[{name:'classifica',strict:true,description:'Retorna la classificació',input_schema:{type:'object',additionalProperties:false,properties:{genre:{type:'string',enum:state.genres.concat([''])},heightClass:{type:'string',enum:['petit','gran','']},reason:{type:'string',description:'Motiu en poques paraules, en català'}},required:['genre','heightClass','reason']}}],
-      tool_choice:{type:'tool',name:'classifica'},
-      messages:[{role:'user',content:`Títol: ${b.title}\nAutors: ${b.authors||''}\nEditorial: ${b.publisher||''}\nPàgines: ${b.pages||''}\nMatèries de la font: ${(b.categories||[]).join(', ')||'cap'}\nSi no estàs segur de la mida, deixa-la buida.`}]});
-    const u=j.content.find(c=>c.type==='tool_use'); return u?u.input:{};
+      tools:[{name:'classifica',description:'Retorna la classificació',schema:{type:'object',additionalProperties:false,properties:{genre:{type:'string',enum:state.genres.concat([''])},heightClass:{type:'string',enum:['petit','gran','']},reason:{type:'string',description:'Motiu en poques paraules, en català'}},required:['genre','heightClass','reason']}}],
+      force:'classifica',
+      messages:[{role:'user',text:`Títol: ${b.title}\nAutors: ${b.authors||''}\nEditorial: ${b.publisher||''}\nPàgines: ${b.pages||''}\nMatèries de la font: ${(b.categories||[]).join(', ')||'cap'}\nSi no estàs segur de la mida, deixa-la buida.`}]});
+    const c=r.calls[0]; return c?c.args:{};
   }
 };
+$('#btnCopyCatalog').addEventListener('click',async()=>{
+  const txt=ai.system()+'\n\nLa meva pregunta: ';
+  try{ await navigator.clipboard.writeText(txt); toast('Catàleg copiat. Enganxa\'l en un xat i escriu la pregunta al final.'); }
+  catch(e){ download('prestatge-cataleg.txt',txt,'text/plain'); toast('Catàleg desat com a fitxer de text'); }
+});
 function renderAi(){
   const has=!!secret.get();
   $('#aiNoKey').hidden=has; $('#aiChips').hidden=!has; $('#aiForm').hidden=!has; $('#aiFooter').hidden=!has;
@@ -803,7 +836,7 @@ async function askAi(text){
     th.classList.remove('thinking'); th.textContent=answer||(proposals.length?'Aquí tens la proposta.':'(sense resposta)');
     for(;shown<proposals.length;shown++) addProposal(proposals[shown]);
     $('#aiUsage').textContent=`${ai.usage.inp.toLocaleString('ca')} tokens d'entrada · ${ai.usage.out.toLocaleString('ca')} de sortida en aquesta conversa`;
-  }catch(e){ th.remove(); addMsg('err',ai.errMsg(e)); ai.history=ai.history.filter(m=>!(m.role==='user'&&m.content===text)); }
+  }catch(e){ th.remove(); addMsg('err',ai.errMsg(e)); const i=ai.history.findLastIndex(m=>m.role==='user'&&m.text===text); if(i>=0) ai.history.splice(i); }
   $('#aiSend').disabled=false;
 }
 $('#aiForm').addEventListener('submit',e=>{ e.preventDefault(); askAi($('#aiInput').value); });
