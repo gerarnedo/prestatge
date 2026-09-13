@@ -13,9 +13,17 @@ Adreça: https://gerarnedo.github.io/prestatge/ (s'actualitza sola quan es fa pu
 
 Dues columnes de 95 cm d'ample útil, 223 cm d'alt, la dreta comença 7 cm amunt per l'escaló, taulons de 2 cm, sense tauló a dalt, i 40 cm reservats a baix per als arxivadors. Els nivells tenen alçada fixa: 40 cm els de llibres grans i 25 cm els de petits. L'app només decideix quants nivells van a cada columna i on va cada tauló; l'espai que sobra queda com a nivell lliure a baix.
 
+## Llibres sense codi de barres
+
+Botó «Foto de la portada»: fas una foto de la portada (o del llom) i la IA hi llegeix títol, autor i editorial, proposa gènere i mida, i busca la fitxa a Open Library. Cal la clau gratuïta de Groq (fa servir el model Qwen, que veu imatges). Revises la fitxa i deses.
+
+## Sincronització entre el mòbil i el Mac
+
+Als Ajustos, «Sincronització (GitHub)»: un token de GitHub amb permís només de *gist* (Settings → Developer settings → Personal access tokens → Tokens (classic) → marca `gist`). Posa el mateix token a cada dispositiu. El catàleg es guarda en un Gist privat i s'actualitza sol en desar i en obrir l'app; si els dos costats tenen llibres, es fusionen. Limitació: un llibre esborrat en un dispositiu pot tornar a aparèixer si l'altre encara el tenia; esborra'l als dos o després de sincronitzar.
+
 ## Dades
 
-Tot es desa al navegador del mòbil, no a cap servidor. Fes *Exporta JSON* de tant en tant i guarda el fitxer: és la còpia de seguretat, i serveix per passar el catàleg a un altre dispositiu amb *Importa*.
+Tot es desa al navegador (i al Gist si has activat la sincronització). Fes *Exporta JSON* de tant en tant i guarda el fitxer: és la còpia de seguretat.
 
 ## Servir-la des del Mac (alternativa)
 
