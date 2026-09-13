@@ -29,6 +29,7 @@
   --warn:#e0a24a; --warn-soft:#3d2e15; --bad:#e2766a; --bad-soft:#3f1f1b;
   --shelf:#7a5c40; --shelf-dark:#4a3627; color-scheme:dark;}}
 *{box-sizing:border-box}
+[hidden]{display:none!important} /* les classes .row/.stack/.chips posen display:flex i anul·laven l'atribut hidden */
 html,body{margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
 h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.01em;text-wrap:balance;margin:0}
@@ -142,10 +143,18 @@ dialog .wrap{padding:16px}
     <div class="stack">
       <div class="card stack">
         <div id="reader" hidden></div>
+        <div id="readerFile" hidden></div>
         <div class="row between">
-          <button class="primary" id="btnCam">Obre la càmera</button>
-          <button id="btnCamStop" hidden>Atura</button>
+          <div class="row">
+            <button class="primary" id="btnCam">Obre la càmera</button>
+            <button id="btnCamStop" hidden>Atura</button>
+            <button id="btnTorch" hidden>Llanterna</button>
+          </div>
           <span class="muted" id="camHint">Apunta al codi de barres de la contraportada.</span>
+        </div>
+        <div class="row">
+          <button class="ghost small" id="btnBarcodePhoto">No el llegeix? Fes una foto del codi de barres</button>
+          <input type="file" id="barcodeFile" accept="image/*" capture="environment" hidden>
         </div>
         <form id="isbnForm" class="row">
           <input type="text" inputmode="numeric" id="isbnInput" placeholder="O escriu l'ISBN (978…)" style="flex:1" autocomplete="off">
@@ -530,29 +539,65 @@ function showPlaced(b){
 function updateCount(){ const n=state.books.length, p=state.books.filter(isPending).length; $('#countLbl').textContent=n+' llibre'+(n===1?'':'s')+(p?' · '+p+' pendent'+(p===1?'':'s'):''); }
 
 /* --- Escàner --- */
-const scanner={ h5:null, running:false, lastCode:'', lastAt:0,
+const scanner={ h5:null, fileScanner:null, running:false, lastCode:'', lastAt:0, hintTimer:null, torchOn:false,
+  formats(){ return [Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,Html5QrcodeSupportedFormats.CODE_128]; },
+  // Finestra ampla i baixa (un codi de barres és ample), càmera a màxima resolució i enfocament continu.
+  config(){ return {
+    fps:15,
+    qrbox:(w,h)=>{ const width=Math.round(Math.min(w*0.94,520)); return {width, height:Math.round(Math.max(90,Math.min(h*0.55,width*0.5)))}; },
+    videoConstraints:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]}
+  }; },
   async start(){
     if(!window.Html5Qrcode){ toast('No s\'ha carregat la llibreria d\'escaneig'); return; }
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('Aquest navegador no dona accés a la càmera (cal https).'); return; }
     $('#reader').hidden=false;
-    this.h5=this.h5||new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A],experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
+    this.h5=this.h5||new Html5Qrcode('reader',{formatsToSupport:this.formats(),experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
     try{
-      await this.h5.start({facingMode:'environment'},{fps:10,qrbox:(w,h)=>({width:Math.min(300,Math.round(w*.85)),height:Math.round(Math.min(300,Math.round(w*.85))*.45)}),aspectRatio:1.333},t=>this.onCode(t),()=>{});
-      this.running=true; $('#btnCam').hidden=true; $('#btnCamStop').hidden=false; $('#camHint').textContent='Escanejant… apunta al codi de barres.';
+      await this.h5.start({facingMode:'environment'},this.config(),t=>this.onCode(t),()=>{});
+      this.running=true; $('#btnCam').hidden=true; $('#btnCamStop').hidden=false;
+      $('#camHint').textContent='Escanejant… omple l\'amplada amb el codi, a uns 15–20 cm.';
+      try{ const caps=this.h5.getRunningTrackCapabilities(); $('#btnTorch').hidden=!(caps&&'torch' in caps); }catch(e){}
+      clearTimeout(this.hintTimer);
+      this.hintTimer=setTimeout(()=>{ if(this.running) $('#camHint').textContent='Costa? Més llum, sense reflexos, el codi ben pla i horitzontal. O fes-ne una foto amb el botó de sota.'; },12000);
     }catch(e){ $('#reader').hidden=true; toast('No s\'ha pogut obrir la càmera: '+(e&&e.message||e)); }
   },
-  async stop(){ if(this.h5&&this.running){ try{ await this.h5.stop() }catch(e){} } this.running=false; $('#reader').hidden=true; $('#btnCam').hidden=false; $('#btnCamStop').hidden=true; $('#camHint').textContent='Apunta al codi de barres de la contraportada.'; },
+  async stop(){ clearTimeout(this.hintTimer); if(this.h5&&this.running){ try{ await this.h5.stop() }catch(e){} } this.running=false; this.torchOn=false; $('#reader').hidden=true; $('#btnCam').hidden=false; $('#btnCamStop').hidden=true; $('#btnTorch').hidden=true; $('#btnTorch').textContent='Llanterna'; $('#camHint').textContent='Apunta al codi de barres de la contraportada.'; },
   pause(){ if(this.h5&&this.running){ try{ this.h5.pause(true) }catch(e){} } },
   resume(){ if(this.h5&&this.running){ try{ this.h5.resume() }catch(e){} } },
+  async torch(){
+    const on=!this.torchOn;
+    try{ await this.h5.applyVideoConstraints({advanced:[{torch:on}]}); this.torchOn=on; $('#btnTorch').textContent=on?'Apaga la llanterna':'Llanterna'; }
+    catch(e){ toast('Aquest mòbil no deixa encendre la llanterna des del navegador'); }
+  },
+  // Alternativa quan la lectura en directe falla: una foto fixa es pot analitzar amb més calma.
+  async scanPhoto(file){
+    if(!window.Html5Qrcode) return;
+    const wasRunning=this.running; if(wasRunning) await this.stop();
+    $('#camHint').textContent='Llegint el codi de la foto…';
+    try{
+      this.fileScanner=this.fileScanner||new Html5Qrcode('readerFile',{formatsToSupport:this.formats(),verbose:false});
+      const text=await this.fileScanner.scanFile(file,false);
+      this.lastCode=''; $('#camHint').textContent='Apunta al codi de barres de la contraportada.'; this.onCode(text);
+    }catch(e){
+      $('#camHint').textContent='Apunta al codi de barres de la contraportada.';
+      toast('No s\'ha vist cap codi a la foto. Que surti sencer, enfocat i ben pla; si no, prova «Foto de la portada».');
+    }
+  },
   onCode(text){
     const code=cleanIsbn(text); const now=Date.now();
     if(code===this.lastCode && now-this.lastAt<4000) return;
     this.lastCode=code; this.lastAt=now;
-    if(!/^(978|979)/.test(code)||!isValidIsbn(code)){ toast('Codi llegit però no és un ISBN: '+code); return; }
+    clearTimeout(this.hintTimer);
     if(navigator.vibrate) navigator.vibrate(60);
-    handleIsbn(code);
+    if(isValidIsbn(code)&&(/^(978|979)/.test(code)||code.length===10)){ handleIsbn(code.length===10?isbn10to13(code):code); return; }
+    if(/^977\d{10}$/.test(code)){ // 977 = ISSN: revistes i publicacions periòdiques, que no són a les bases de llibres
+      toast('Codi de revista (ISSN). Omple la fitxa a mà.'); this.pause(); openNewBook({title:'',authors:[],categories:[],source:'codi de revista'},code); return; }
+    toast('Codi llegit: '+code+'. No és un codi de llibre; prova «Foto de la portada».');
   }
 };
+$('#btnTorch').addEventListener('click',()=>scanner.torch());
+$('#btnBarcodePhoto').addEventListener('click',()=>$('#barcodeFile').click());
+$('#barcodeFile').addEventListener('change',e=>{ const f=e.target.files[0]; e.target.value=''; if(f) scanner.scanPhoto(f); });
 $('#btnCam').addEventListener('click',()=>scanner.start());
 $('#btnCamStop').addEventListener('click',()=>scanner.stop());
 $('#isbnForm').addEventListener('submit',e=>{ e.preventDefault(); const v=cleanIsbn($('#isbnInput').value); if(!isValidIsbn(v)){ toast('ISBN no vàlid'); return; } $('#isbnInput').value=''; handleIsbn(v.length===10?isbn10to13(v):v); });
@@ -586,7 +631,7 @@ function bookForm(b,isNew){
       <div class="stack" style="gap:6px">
         <label class="f"><span>Títol</span><input type="text" name="title" value="${esc(b.title)}" required></label>
         <label class="f"><span>Autor/a (cognom, nom o nom cognom; separa amb ;)</span><input type="text" name="authors" value="${esc((b.authors||[]).join('; '))}"></label>
-        <div class="muted">${b.isbn?'ISBN '+esc(b.isbn)+' · ':''}${b.source?'font: '+esc(b.source):''}${b.categories&&b.categories.length?' · matèries: '+esc(b.categories.slice(0,4).join(', ')):''}</div>
+        <div class="muted">${b.isbn?(/^97[89]/.test(b.isbn)?'ISBN ':'Codi ')+esc(b.isbn)+' · ':''}${b.source?'font: '+esc(b.source):''}${b.categories&&b.categories.length?' · matèries: '+esc(b.categories.slice(0,4).join(', ')):''}</div>
       </div>
     </div>
     <div>

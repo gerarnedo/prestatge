@@ -6,7 +6,7 @@ Adreça: https://gerarnedo.github.io/prestatge/ (s'actualitza sola quan es fa pu
 
 ## Les dues pàgines (menú de baix)
 
-- **Afegeix**: càmera per llegir el codi de barres, ISBN a mà, llibre sense ISBN, o col·lecció (enciclopèdies: una sola entrada amb el nombre de volums i el gruix de cada volum). Es consulta Open Library i després Google Books; tu confirmes la mida (petit fins a 25,5 cm, mitjà fins a 32 cm, gran fins a 39 cm) i el gènere. En desar, l'app diu on va el llibre: nivell, posició, entre quins llibres, i a quants cm del terra és el tauló.
+- **Afegeix**: càmera per llegir el codi de barres (amb llanterna si el mòbil la deixa encendre, i l'opció de fer una foto del codi quan la lectura en directe falla), ISBN a mà, llibre sense ISBN, o col·lecció (enciclopèdies: una sola entrada amb el nombre de volums i el gruix de cada volum). Es consulta Open Library i després Google Books; tu confirmes la mida (petit fins a 25,5 cm, mitjà fins a 32 cm, gran fins a 39 cm) i el gènere. En desar, l'app diu on va el llibre: nivell, posició, entre quins llibres, i a quants cm del terra és el tauló.
 - **Prestatgeria**: cercador dels llibres que ja tens, alçat del moble a escala (els llibres cercats o l'acabat d'afegir surten ressaltats) i la llista amb la posició de cada llibre. Plegats a sota: la *Guia de muntatge* (nivells, taulons i ordre de cada nivell, imprimible), l'*Assistent* (xat; cal una clau gratuïta de Groq, o «Copia el catàleg» per a qualsevol xat) i els *Ajustos* (mides del moble, alçada fixa dels nivells, ordre dels gèneres, regles, claus).
 
 ## El moble (predefinit als Ajustos)
