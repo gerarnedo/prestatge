@@ -183,7 +183,7 @@ dialog .wrap{padding:16px}
       </div>
       <div class="list" id="bookList"></div>
       <details class="card" id="guide">
-        <summary>Guia de muntatge: nivells, taulons i ordre de cada nivell</summary>
+        <summary>Guia de muntatge: nivells (de baix a dalt), taulons i ordre de cada nivell</summary>
         <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="small" id="btnPrint">Imprimeix / PDF</button></div>
         <div id="levelsOut"></div>
       </details>
@@ -225,7 +225,7 @@ dialog .wrap{padding:16px}
         <h3>Regles d'ordenació</h3>
         <div class="grid2">
           <label class="f"><span>1. Mida</span>
-            <select id="optHeightDir"><option value="desc">Grans primer</option><option value="asc">Petits primer</option></select></label>
+            <select id="optHeightDir"><option value="desc">Grans a baix, sobre els arxivadors</option><option value="asc">Petits a baix</option></select></label>
           <label class="f"><span>3. Alfabètic per</span>
             <select id="optAlpha"><option value="author">Cognom de l'autor</option><option value="title">Títol</option></select></label>
         </div>
@@ -422,13 +422,13 @@ function placeBooks(){
     }
   });
   for(const col of cols){
-    // L'espai que sobra queda com a nivell lliure a baix, per a llibres futurs.
+    // Els nivells s'apilen des del reservat cap amunt: el primer (els grans) just sobre els arxivadors. L'espai que sobra queda a dalt, obert.
     let left=col.avail-col.used;
     if(left>=(+state.opts.levelPetit||25)+board){ col.comps.push({books:[],used:0,h:left-board,free:true}); col.used=col.avail; left=0; }
     col.slack=left;
-    let y=col.offset+col.height; // sense tauló a dalt
-    col.comps.forEach((c,idx)=>{ c.top=y; c.bottom=y-c.h; y=c.bottom-board; c.name=c.free?col.name+' · lliure':col.name+' '+(idx+1); c.column=col; c.width=col.width; c.widthMm=col.widthMm; });
-    col.reservedTop=y; col.reservedBottom=col.offset+board;
+    col.reservedBottom=col.offset+board; col.reservedTop=col.reservedBottom+col.reserved;
+    let y=col.reserved?col.reservedTop+board:col.reservedBottom;
+    col.comps.forEach((c,idx)=>{ c.bottom=y; c.top=y+c.h; y=c.top+board; c.name=c.free?col.name+' · lliure (dalt)':col.name+' '+(idx+1); c.column=col; c.width=col.width; c.widthMm=col.widthMm; });
   }
   overflow.push(...books.slice(i));
   const shelves=cols.flatMap(c=>c.comps);
@@ -737,7 +737,7 @@ function renderElevation(cols){
           bx+=w; } }
       if(c!==col.comps[col.comps.length-1]||true){ svg+=`<rect x="${x0}" y="${Y(c.bottom)}" width="${col.width+side*2}" height="${board}" fill="var(--shelf)"/>`; }
       svg+=`<text x="${xi+0.8}" y="${(Y(c.top)+2.2).toFixed(1)}" font-size="1.5" fill="var(--ink-2)">${esc(c.name)}</text><text x="${xi+col.width-0.8}" y="${(Y(c.top)+2.2).toFixed(1)}" font-size="1.6" text-anchor="end" fill="var(--ink)">${c.h} cm</text>`;
-      if(c.free) svg+=`<text x="${xi+col.width/2}" y="${(Y(c.bottom)-c.h/2+0.7).toFixed(1)}" font-size="1.8" text-anchor="middle" fill="var(--ink-2)">lliure</text>`;
+      if(c.free) svg+=`<text x="${xi+col.width/2}" y="${(Y(c.bottom)-c.h/2+0.7).toFixed(1)}" font-size="1.8" text-anchor="middle" fill="var(--ink-2)">lliure · ${c.h} cm</text>`;
     }
     const wy=vh-3.2;
     svg+=`<line x1="${xi}" y1="${wy}" x2="${xi+col.width}" y2="${wy}" ${S}/><line x1="${xi}" y1="${wy-0.8}" x2="${xi}" y2="${wy+0.8}" ${S}/><line x1="${xi+col.width}" y1="${wy-0.8}" x2="${xi+col.width}" y2="${wy+0.8}" ${S}/><text x="${xi+col.width/2}" y="${(vh-0.8).toFixed(1)}" font-size="1.9" text-anchor="middle" fill="var(--ink)">${esc(col.name)} · ${col.width} cm</text>`;
@@ -760,7 +760,7 @@ function renderOrder(){
   $('#orderSummary').textContent=`${state.books.length} llibres · ${(totalMm/10).toFixed(0)} cm de llom · ${levels} nivell${levels===1?'':'s'}`+(overflow.length?' · NO HI CAP TOT':'')+(pending?` · ${pending} pendents (col·locats com a petit/Altres)`:'');
   const usedGenres=new Set();
   out.insertAdjacentHTML('beforeend',renderElevation(cols));
-  const slack=cols.filter(c=>c.slack>0).map(c=>`${c.name}: sobren ${c.slack} cm, que queden sobre el reservat`);
+  const slack=cols.filter(c=>c.slack>0).map(c=>`${c.name}: sobren ${c.slack} cm a dalt`);
   if(slack.length) out.insertAdjacentHTML('beforeend',`<p class="muted" style="margin:-8px 0 14px">${esc(slack.join(' · '))}</p>`);
   shelves.forEach((s,si)=>{
     const div=document.createElement('div'); div.className='shelfblock card';
@@ -922,9 +922,9 @@ const ai={
     const n=state.books.length, grans=state.books.filter(b=>b.heightClass==='gran').length, petits=state.books.filter(b=>b.heightClass==='petit').length, pend=state.books.filter(isPending).length;
     return `Ets l'assistent de «Prestatge», una app que ordena la prestatgeria de casa d'en Gerard. Respon sempre en català, breu i concret.
 
-Regles d'ordenació, en aquest ordre: 1) mida (${state.opts.heightDir==='desc'?'grans primer':'petits primer'}; només hi ha dues mides: petit fins a 24 cm i gran més de 24 cm), 2) gènere segons aquest ordre: ${state.genres.join(' → ')}, 3) alfabètic per ${state.opts.alpha==='author'?'cognom del primer autor':'títol'}. Els llibres omplen els prestatges de dalt a baix; la posició és l'ordre dins del prestatge començant per l'esquerra.
+Regles d'ordenació, en aquest ordre: 1) mida (${state.opts.heightDir==='desc'?'grans primer':'petits primer'}; només hi ha dues mides: petit fins a 24 cm i gran més de 24 cm), 2) gènere segons aquest ordre: ${state.genres.join(' → ')}, 3) alfabètic per ${state.opts.alpha==='author'?'cognom del primer autor':'títol'}. Els nivells s'omplen de baix a dalt començant just sobre els arxivadors (el nivell 1 de cada columna és el de més avall); la posició és l'ordre dins del nivell començant per l'esquerra.
 
-Prestatgeria: un moble amb ${state.columns.length} columnes (${state.columns.map(c=>c.name+' '+c.width+'×'+c.height+' cm').join(', ')}); el nivell de baix de cada columna és reservat (${state.columns.map(c=>c.reservedLabel).filter(Boolean).join('/')||'res'}). Els nivells de llibres es numeren de dalt a baix dins de cada columna:
+Prestatgeria: un moble amb ${state.columns.length} columnes (${state.columns.map(c=>c.name+' '+c.width+'×'+c.height+' cm').join(', ')}); el nivell de baix de cada columna és reservat (${state.columns.map(c=>c.reservedLabel).filter(Boolean).join('/')||'res'}). Els nivells de llibres es numeren de baix a dalt dins de cada columna:
 ${rec}${overflow.length?`\nNo hi caben: ${overflow.length} llibres`:''}
 
 Catàleg: ${n} llibres (${grans} grans, ${petits} petits, ${pend} pendents de classificar). Gèneres i quants llibres té cadascun: ${gc}.
