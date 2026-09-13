@@ -123,8 +123,9 @@ dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .wrap{padding:16px}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
-@media print{nav.tabs,#sec-add,#sec-books,#sec-ai,#settings,#btnPrint,.toast{display:none!important}body{padding:0;background:#fff;color:#000}.card{border:0;padding:0;break-inside:avoid}.spines{display:none}}
-section{scroll-margin-top:12px;margin-bottom:28px}
+@media print{nav.tabs,#view-add,#searchBooks,#bookList,#pendingLbl,#aiBox,#settings,#btnPrint,.toast{display:none!important}body{padding:0;background:#fff;color:#000}.view{display:none}#view-shelf{display:block}.card{border:0;padding:0;break-inside:avoid}.spines{display:none}}
+.placed{border-color:var(--accent);background:var(--accent-soft)}
+.placed .big{font-size:18px;font-family:var(--display);font-weight:600}
 #settings summary{padding:2px 0}
 @media (min-width:640px){.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}}
 </style>
@@ -132,42 +133,78 @@ section{scroll-margin-top:12px;margin-bottom:28px}
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>Prestatge</h1>
+    <h1 id="viewTitle">Afegeix</h1>
     <span class="count" id="countLbl"></span>
   </header>
 
-  <!-- AFEGEIX -->
-  <section id="sec-add" class="stack">
-    <h2>Afegeix llibres</h2>
-    <div class="card stack">
-      <div id="reader" hidden></div>
-      <div class="row between">
-        <button class="primary" id="btnCam">Obre la càmera</button>
-        <button id="btnCamStop" hidden>Atura</button>
-        <span class="muted" id="camHint">Apunta al codi de barres de la contraportada.</span>
+  <!-- PÀGINA 1: AFEGEIX -->
+  <section class="view active" id="view-add">
+    <div class="stack">
+      <div class="card stack">
+        <div id="reader" hidden></div>
+        <div class="row between">
+          <button class="primary" id="btnCam">Obre la càmera</button>
+          <button id="btnCamStop" hidden>Atura</button>
+          <span class="muted" id="camHint">Apunta al codi de barres de la contraportada.</span>
+        </div>
+        <form id="isbnForm" class="row">
+          <input type="text" inputmode="numeric" id="isbnInput" placeholder="O escriu l'ISBN (978…)" style="flex:1" autocomplete="off">
+          <button type="submit">Cerca</button>
+        </form>
+        <div class="row">
+          <button class="ghost small" id="btnManual">Afegeix a mà, sense ISBN</button>
+          <button class="ghost small" id="btnCollection">Afegeix una col·lecció (enciclopèdia, volums…)</button>
+        </div>
       </div>
-      <form id="isbnForm" class="row">
-        <input type="text" inputmode="numeric" id="isbnInput" placeholder="O escriu l'ISBN (978…)" style="flex:1" autocomplete="off">
-        <button type="submit">Cerca</button>
-      </form>
-      <div class="row">
-        <button class="ghost small" id="btnManual">Afegeix a mà, sense ISBN</button>
-        <button class="ghost small" id="btnCollection">Afegeix una col·lecció (enciclopèdia, volums…)</button>
-      </div>
+      <div id="lookupState" class="muted" hidden></div>
+      <div class="card" id="newBook" hidden></div>
+      <div class="card stack placed" id="placed" hidden></div>
     </div>
-    <div id="lookupState" class="muted" hidden></div>
-    <div class="card" id="newBook" hidden></div>
   </section>
 
-  <!-- PRESTATGERIA -->
-  <section id="sec-shelf" class="stack">
-    <div class="row between">
-      <h2>Prestatgeria</h2>
-      <button class="small" id="btnPrint">Imprimeix / PDF</button>
-    </div>
-    <span class="muted" id="orderSummary"></span>
-    <div id="orderOut"></div>
-    <details class="card" id="settings">
+  <!-- PÀGINA 2: PRESTATGERIA -->
+  <section class="view" id="view-shelf">
+    <div class="stack">
+      <input type="search" id="searchBooks" placeholder="Busca un llibre: títol, autor o gènere">
+      <span class="muted" id="orderSummary"></span>
+      <div id="orderOut"></div>
+      <div class="row between">
+        <span class="muted" id="pendingLbl"></span>
+        <div class="row">
+          <button class="small" id="btnExport">Exporta JSON</button>
+          <button class="small" id="btnExportCsv">CSV</button>
+          <button class="small" id="btnImport">Importa</button>
+          <input type="file" id="importFile" accept="application/json" hidden>
+        </div>
+      </div>
+      <div class="list" id="bookList"></div>
+      <details class="card" id="guide">
+        <summary>Guia de muntatge: nivells, taulons i ordre de cada nivell</summary>
+        <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="small" id="btnPrint">Imprimeix / PDF</button></div>
+        <div id="levelsOut"></div>
+      </details>
+      <details class="card" id="aiBox">
+        <summary>Assistent</summary>
+        <div class="stack" style="margin-top:12px">
+          <p class="muted">Pregunta on és un llibre, demana que classifiqui els pendents o que et proposi un ordre de gèneres millor. Només canvia coses si tu ho aproves.</p>
+          <p class="muted" id="aiNoKey">Per fer servir el xat cal una clau d'API gratuïta (Groq o Gemini). Posa-la als <b>Ajustos</b>, aquí sota. Es desa només en aquest dispositiu.</p>
+          <p class="muted" id="aiModelLbl"></p>
+          <div class="row"><button class="small" id="btnCopyCatalog">Copia el catàleg per enganxar-lo en un xat</button><span class="muted">Sense clau: enganxa-ho a l'app gratuïta de Claude, ChatGPT o Gemini i pregunta-hi.</span></div>
+          <div class="chips" id="aiChips">
+            <button class="small">On tinc «Sapiens»?</button>
+            <button class="small">Classifica els llibres pendents</button>
+            <button class="small">Com milloraries l'ordre dels gèneres?</button>
+            <button class="small">Quins llibres de dibuix tinc?</button>
+          </div>
+          <div class="chat" id="chat"></div>
+          <form id="aiForm" class="row" style="flex-wrap:nowrap">
+            <input type="text" id="aiInput" placeholder="Escriu una pregunta…" style="flex:1" autocomplete="off">
+            <button type="submit" class="primary" id="aiSend">Envia</button>
+          </form>
+          <div class="row between" id="aiFooter"><span class="muted" id="aiUsage"></span><button class="ghost small" id="aiClear">Nova conversa</button></div>
+        </div>
+      </details>
+      <details class="card" id="settings">
       <summary>Ajustos: mides del moble, regles d'ordenació, assistent</summary>
       <div class="stack" style="margin-top:12px">
         <h3>El moble</h3>
@@ -206,54 +243,14 @@ section{scroll-margin-top:12px;margin-bottom:28px}
         <h3>Fonts de dades</h3>
         <label class="f"><span>Clau API de Google Books (opcional)</span><input type="text" id="optGbKey" placeholder="Sense clau també funciona, amb límit diari"></label>
       </div>
-    </details>
-  </section>
-
-  <!-- LLIBRES -->
-  <section id="sec-books" class="stack">
-    <h2>Llibres</h2>
-    <input type="search" id="searchBooks" placeholder="Cerca per títol, autor o gènere">
-    <div class="row between">
-      <span class="muted" id="pendingLbl"></span>
-      <div class="row">
-        <button class="small" id="btnExport">Exporta JSON</button>
-        <button class="small" id="btnExportCsv">CSV</button>
-        <button class="small" id="btnImport">Importa</button>
-        <input type="file" id="importFile" accept="application/json" hidden>
-      </div>
+      </details>
     </div>
-    <div class="list" id="bookList"></div>
-  </section>
-
-  <!-- ASSISTENT -->
-  <section id="sec-ai" class="stack">
-    <h2>Assistent</h2>
-    <div class="card stack">
-      <p class="muted">Pregunta on és un llibre, demana que classifiqui els pendents o que et proposi un ordre de gèneres millor. Només canvia coses si tu ho aproves.</p>
-      <p class="muted" id="aiNoKey">Per fer servir el xat cal una clau d'API gratuïta (Groq o Gemini). Posa-la als <b>Ajustos</b> de la secció Prestatgeria. Es desa només en aquest dispositiu.</p>
-      <p class="muted" id="aiModelLbl"></p>
-      <div class="row"><button class="small" id="btnCopyCatalog">Copia el catàleg per enganxar-lo en un xat</button><span class="muted">Sense clau: enganxa-ho a l'app gratuïta de Claude, ChatGPT o Gemini i pregunta-hi.</span></div>
-    </div>
-    <div class="chips" id="aiChips">
-      <button class="small">On tinc «Sapiens»?</button>
-      <button class="small">Classifica els llibres pendents</button>
-      <button class="small">Com milloraries l'ordre dels gèneres?</button>
-      <button class="small">Quins llibres de dibuix tinc?</button>
-    </div>
-    <div class="chat" id="chat"></div>
-    <form id="aiForm" class="row" style="flex-wrap:nowrap">
-      <input type="text" id="aiInput" placeholder="Escriu una pregunta…" style="flex:1" autocomplete="off">
-      <button type="submit" class="primary" id="aiSend">Envia</button>
-    </form>
-    <div class="row between" id="aiFooter"><span class="muted" id="aiUsage"></span><button class="ghost small" id="aiClear">Nova conversa</button></div>
   </section>
 </div>
 
 <nav class="tabs">
-  <button data-go="sec-add" class="active"><svg viewBox="0 0 24 24"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M11 8v8M14 8v8M17 8v8"/></svg>Afegeix</button>
-  <button data-go="sec-shelf"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18M6 5v7M10 5v7M14 12v7M8 12v7"/></svg>Prestatgeria</button>
-  <button data-go="sec-books"><svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h3v15M8 19V4h4v15M12 19l3-14 4 1-3 14z"/><path d="M3 20h18"/></svg>Llibres</button>
-  <button data-go="sec-ai"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M9 9h7M9 12h4"/></svg>Assistent</button>
+  <button data-view="add" class="active"><svg viewBox="0 0 24 24"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M11 8v8M14 8v8M17 8v8"/></svg>Afegeix</button>
+  <button data-view="shelf"><svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18M6 5v7M10 5v7M14 12v7M8 12v7"/></svg>Prestatgeria</button>
 </nav>
 
 <div class="toast" id="toast"></div>
@@ -342,7 +339,7 @@ function estimateThickness(b){ return volumeThickness(b)*volumes(b); }
 function levelHeightFor(b){ return (b.heightClass==='gran')?(+state.opts.levelGran||40):(+state.opts.levelPetit||25); }
 function heightCm(b){ if(b.heightCm) return +b.heightCm; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.cm:21; }
 function neededCm(b){ if(b.heightCm) return +b.heightCm+1; const h=HEIGHTS.find(h=>h.id===b.heightClass); return h?h.maxCm:24; }
-function positions(){ const {shelves}=placeBooks(); const m=new Map(); shelves.forEach(s=>s.books.forEach((b,i)=>m.set(b.id,{shelf:s.name,pos:i+1}))); return m; }
+function positions(){ const {shelves}=placeBooks(); const m=new Map(); shelves.forEach(s=>s.books.forEach((b,i)=>m.set(b.id,{shelf:s.name,pos:i+1,prev:s.books[i-1]||null,next:s.books[i+1]||null,bottom:s.bottom,h:s.h,count:s.books.length}))); return m; }
 function recommendedShelfH(books){ if(!books.length) return 0; const need=Math.max(...books.map(neededCm)); const min=+state.opts.minShelfH||20, step=+state.opts.stepShelfH||5; return Math.max(min, Math.ceil((need-min)/step)*step+min); }
 const ARTICLES=/^(el|la|els|les|l'|un|una|uns|unes|the|a|an|los|las|le|les|der|die|das)\s+/i;
 function titleKey(t){ return String(t||'').replace(/^[¡¿"'«(]+/,'').replace(ARTICLES,'').replace(/^l'/i,'').trim(); }
@@ -476,14 +473,36 @@ async function lookup(isbn){
 }
 
 /* ---------- Vistes ---------- */
-// Tot és en una sola pàgina: showView només hi desplaça.
-const SECTIONS={scan:'sec-add',add:'sec-add',books:'sec-books',shelves:'sec-shelf',order:'sec-shelf',ai:'sec-ai'};
-function showView(v){ const el=document.getElementById(SECTIONS[v]||v); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
-document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.go)));
-// El botó actiu del menú segueix la secció visible
-const secObs=new IntersectionObserver(entries=>{ const vis=entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0]; if(!vis) return; document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.go===vis.target.id)); },{rootMargin:'-20% 0px -55% 0px',threshold:[0,0.2,0.5,1]});
-document.querySelectorAll('section[id^=sec-]').forEach(s=>secObs.observe(s));
+// Dues pàgines: Afegeix i Prestatgeria.
+const TITLES={add:'Afegeix',shelf:'Prestatgeria'};
+function showView(v){
+  if(!TITLES[v]) v='add';
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+v));
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  $('#viewTitle').textContent=TITLES[v];
+  if(v!=='add' && scanner.running) scanner.stop();
+  window.scrollTo({top:0});
+  try{ localStorage.setItem('prestatge.view',v) }catch(e){}
+}
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+let highlightId=null; // llibre ressaltat a l'alçat (l'acabat d'afegir)
 function renderAll(){ updateCount(); renderBooks(); renderShelves(); renderOrder(); renderAi(); }
+// Targeta «on va» després de desar un llibre
+function showPlaced(b){
+  const box=$('#placed'); const p=positions().get(b.id);
+  let html;
+  if(!p){ html=`<div class="big">«${esc(b.title)}» no té lloc</div><p class="muted">O és massa alt per al seu nivell, o s'ha acabat l'alçada de les columnes. Mira-ho a la Prestatgeria.</p>`; }
+  else{
+    const side=x=>x?`«${esc(x.title)}»`:'';
+    html=`<div class="big">Col·loca «${esc(b.title)}» a ${esc(p.shelf)}, posició ${p.pos} de ${p.count}</div>
+      <p style="margin:0">${p.prev?`A la dreta de ${side(p.prev)}`:'Al principi del nivell (esquerra)'}${p.prev&&p.next?', i ':''}${p.next?(p.prev?'a l\'esquerra de ':'A l\'esquerra de ')+side(p.next):(p.prev?'':'')}${!p.prev&&!p.next?', és l\'únic':''}${p.prev&&!p.next?', al final del nivell':''}.</p>
+      <p class="muted" style="margin:0">Nivell de ${p.h} cm amb el tauló a ${p.bottom} cm del terra.</p>`;
+  }
+  html+=`<div class="row"><button class="primary small" data-see>Veure-ho a la prestatgeria</button><button class="small" data-close>Afegeix-ne un altre</button></div>`;
+  box.innerHTML=html; box.hidden=false; box.scrollIntoView({behavior:'smooth',block:'start'});
+  box.querySelector('[data-see]').addEventListener('click',()=>{ highlightId=b.id; $('#searchBooks').value=''; renderOrder(); showView('shelf'); setTimeout(()=>{ const el=document.querySelector('.elev [data-hl]'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); },80); });
+  box.querySelector('[data-close]').addEventListener('click',()=>{ box.hidden=true; box.innerHTML=''; });
+}
 function updateCount(){ const n=state.books.length, p=state.books.filter(isPending).length; $('#countLbl').textContent=n+' llibre'+(n===1?'':'s')+(p?' · '+p+' pendent'+(p===1?'':'s'):''); }
 
 /* --- Escàner --- */
@@ -530,7 +549,8 @@ function openNewBook(d,isbn){
   const box=$('#newBook'); box.hidden=false;
   box.innerHTML=bookForm(draft,true);
   box.scrollIntoView({behavior:'smooth',block:'start'});
-  wireForm(box,draft,()=>{ state.books.push(draft); store.save(); updateCount(); box.hidden=true; box.innerHTML=''; toast('Desat: '+draft.title); scanner.resume(); },()=>{ box.hidden=true; box.innerHTML=''; scanner.resume(); });
+  $('#placed').hidden=true;
+  wireForm(box,draft,()=>{ state.books.push(draft); store.save(); updateCount(); box.hidden=true; box.innerHTML=''; toast('Desat: '+draft.title); showPlaced(draft); scanner.resume(); },()=>{ box.hidden=true; box.innerHTML=''; scanner.resume(); });
 }
 function bookForm(b,isNew){
   const cover=b.isbn?`<img src="https://covers.openlibrary.org/b/isbn/${esc(b.isbn)}-M.jpg" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'nocover',textContent:'Sense coberta'}))">`:`<div class="nocover">Sense coberta</div>`;
@@ -611,7 +631,8 @@ function renderBooks(){
     list.appendChild(el);
   }
 }
-$('#searchBooks').addEventListener('input',renderBooks);
+$('#searchBooks').addEventListener('input',()=>{ highlightId=null; renderBooks(); renderOrder(); });
+function searchMatches(){ const q=$('#searchBooks').value.trim().toLowerCase(); if(!q) return null; return new Set(state.books.filter(b=>[b.title,(b.authors||[]).join(' '),b.genre,b.isbn].join(' ').toLowerCase().includes(q)).map(b=>b.id)); }
 function editBook(b){
   const dlg=$('#editDlg'), body=$('#editBody'); const copy=JSON.parse(JSON.stringify(b));
   body.innerHTML=bookForm(copy,false);
@@ -681,6 +702,7 @@ function genreColor(g){ let h=0; for(const c of (g||'')) h=(h*31+c.charCodeAt(0)
 // Alçat de la prestatgeria a escala (unitats del viewBox = cm)
 function renderElevation(cols){
   const board=+state.opts.boardCm||2, side=2, top=1.5, dimR=14, dimB=7;
+  const match=searchMatches(); const isHl=b=>b.id===highlightId||(match&&match.has(b.id)); const dim=b=>(match&&!match.has(b.id))||(highlightId&&b.id!==highlightId&&!match);
   const totalH=Math.max(1,...cols.map(c=>c.offset+c.height));
   const innerW=cols.reduce((a,c)=>a+c.width,0)+side*(cols.length+1);
   const vw=innerW+dimR, vh=top+totalH+dimB;
@@ -699,8 +721,9 @@ function renderElevation(cols){
       let bx=xi;
       for(const b of c.books){ const w=volumeThickness(b)/10, h=Math.min(heightCm(b),c.h-0.4), n=volumes(b);
         for(let v=0;v<n;v++){
-          svg+=`<rect x="${bx.toFixed(2)}" y="${(Y(c.bottom)-h).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${genreColor(b.genre||'Altres')}" stroke="rgba(0,0,0,.3)" stroke-width="0.08"><title>${esc(b.title)}${n>1?' · vol. '+(v+1):''} · ${esc((b.authors||[]).join('; '))}</title></rect>`;
-          if(w>=1.5&&(v===0||n<=3)){ const chars=Math.max(0,Math.floor((h-1.5)/0.62)); svg+=`<text transform="translate(${(bx+w/2+0.4).toFixed(2)} ${(Y(c.bottom)-0.7).toFixed(2)}) rotate(-90)" font-size="1.05" fill="#fff" fill-opacity=".92">${esc(b.title.slice(0,chars))}</text>`; }
+          const hl=isHl(b);
+          svg+=`<rect ${hl?'data-hl="1"':''} x="${bx.toFixed(2)}" y="${(Y(c.bottom)-h).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${genreColor(b.genre||'Altres')}" ${dim(b)?'fill-opacity=".18"':''} stroke="${hl?'var(--accent)':'rgba(0,0,0,.3)'}" stroke-width="${hl?'0.5':'0.08'}"><title>${esc(b.title)}${n>1?' · vol. '+(v+1):''} · ${esc((b.authors||[]).join('; '))}</title></rect>`;
+          if(w>=1.5&&(v===0||n<=3)){ const chars=Math.max(0,Math.floor((h-1.5)/0.62)); svg+=`<text transform="translate(${(bx+w/2+0.4).toFixed(2)} ${(Y(c.bottom)-0.7).toFixed(2)}) rotate(-90)" font-size="1.05" fill="#fff" fill-opacity="${dim(b)?'.25':'.92'}">${esc(b.title.slice(0,chars))}</text>`; }
           bx+=w; } }
       if(c!==col.comps[col.comps.length-1]||true){ svg+=`<rect x="${x0}" y="${Y(c.bottom)}" width="${col.width+side*2}" height="${board}" fill="var(--shelf)"/>`; }
       svg+=`<text x="${xi+0.8}" y="${(Y(c.top)+2.2).toFixed(1)}" font-size="1.5" fill="var(--ink-2)">${esc(c.name)}</text><text x="${xi+col.width-0.8}" y="${(Y(c.top)+2.2).toFixed(1)}" font-size="1.6" text-anchor="end" fill="var(--ink)">${c.h} cm</text>`;
@@ -714,11 +737,12 @@ function renderElevation(cols){
   svg+=`<line x1="${dx}" y1="${Y(0)}" x2="${dx}" y2="${Y(totalH)}" ${S}/><line x1="${dx-0.8}" y1="${Y(0)}" x2="${dx+0.8}" y2="${Y(0)}" ${S}/><line x1="${dx-0.8}" y1="${Y(totalH)}" x2="${dx+0.8}" y2="${Y(totalH)}" ${S}/><text transform="translate(${dx+2.2} ${(Y(totalH/2)).toFixed(1)}) rotate(90)" font-size="2" text-anchor="middle" fill="var(--ink)">${totalH} cm</text>`;
   svg+='</svg>';
   const levels=cols.reduce((a,c)=>a+c.comps.length,0);
-  return `<div class="card shelfblock"><h3><span>Alçat</span><span class="muted">${levels} nivells de llibres</span></h3><p class="muted">Vista frontal a escala, des del terra. El ratllat és l'espai reservat. Toca un llom per veure el títol.</p>${svg}</div>`;
+  const hint=match?`${match.size} llibre${match.size===1?'':'s'} ressaltat${match.size===1?'':'s'} a l'alçat`:highlightId?'El llibre acabat d\'afegir està ressaltat':'Toca un llom per veure el títol; busca a dalt per ressaltar llibres.';
+  return `<div class="card shelfblock"><h3><span>Alçat</span><span class="muted">${levels} nivells de llibres</span></h3><p class="muted">${hint}</p>${svg}</div>`;
 }
 function renderOrder(){
-  const out=$('#orderOut'); out.innerHTML='';
-  if(!state.books.length){ out.innerHTML='<p class="muted">Sense llibres. Escaneja\'n uns quants i torna.</p>'; $('#orderSummary').textContent=''; return; }
+  const out=$('#orderOut'); out.innerHTML=''; const lv=$('#levelsOut'); lv.innerHTML='';
+  if(!state.books.length){ out.innerHTML='<p class="muted">Sense llibres. Afegeix-ne des de la primera pàgina.</p>'; $('#orderSummary').textContent=''; return; }
   const {shelves,cols,noFit,overflow}=placeBooks();
   const pending=state.books.filter(isPending).length;
   const totalMm=state.books.reduce((a,b)=>a+estimateThickness(b),0);
@@ -747,13 +771,13 @@ function renderOrder(){
         html+=`<li><div>${state.opts.alpha==='author'&&(b.authors||[]).length?'<b>'+esc(authorKey(b))+'</b> · ':''}${esc(b.title)}${volumes(b)>1?' <span class="pill">'+volumes(b)+' volums</span>':''}${isPending(b)?' <span class="pill warn">pendent</span>':''}<div class="g">${esc((b.authors||[]).join('; '))}${b.thicknessMm?'':' · gruix estimat '+estimateThickness(b)+' mm'}</div></div></li>`; });
       html+='</ol>';
     }
-    div.innerHTML=html; out.appendChild(div);
+    div.innerHTML=html; lv.appendChild(div);
   });
   if(overflow.length){ const mm=overflow.reduce((a,b)=>a+estimateThickness(b),0); const d=document.createElement('div'); d.className='card'; d.innerHTML=`<h3>No hi caben</h3><p class="muted">S'ha acabat l'alçada de les columnes: queden fora uns ${(mm/10).toFixed(0)} cm de llom. Aquests llibres no tenen lloc (treu-ne, redueix el reservat o afegeix una columna):</p><ol class="order">`+overflow.map(b=>'<li><div>'+esc(b.title)+'<div class="g">'+esc((b.authors||[]).join('; '))+' · '+estimateThickness(b)+' mm</div></div></li>').join('')+'</ol>'; out.appendChild(d); }
   if(noFit.length){ const d=document.createElement('div'); d.className='card'; d.innerHTML=`<h3>Massa alts per al seu nivell</h3><p class="muted">Els nivells fan ${state.opts.levelGran} cm (grans) i ${state.opts.levelPetit} cm (petits). Aquests llibres no hi caben drets; posa'ls ajaguts o canvia'ls la mida:</p><ul>`+noFit.map(b=>'<li>'+esc(b.title)+' ('+heightCm(b)+' cm)</li>').join('')+'</ul>'; out.appendChild(d); }
   const lg=document.createElement('div'); lg.className='legend'; lg.innerHTML=[...usedGenres].map(g=>`<span class="pill"><i style="background:${genreColor(g)}"></i>${esc(g)}</span>`).join(''); out.appendChild(lg);
 }
-$('#btnPrint').addEventListener('click',()=>window.print());
+$('#btnPrint').addEventListener('click',()=>{ $('#guide').open=true; setTimeout(()=>window.print(),50); });
 
 /* ---------- Assistent: crida directa a l'API del proveïdor (Gemini gratuït o Anthropic) des del navegador amb la clau de l'usuari ---------- */
 const ai={
@@ -938,6 +962,8 @@ $('#aiClear').addEventListener('click',()=>{ ai.history=[]; ai.usage={inp:0,out:
 /* ---------- Inici ---------- */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 renderAll();
+let v0='add'; try{ v0=localStorage.getItem('prestatge.view')||'add' }catch(e){}
+showView(v0);
 </script>
 </body>
 </html>

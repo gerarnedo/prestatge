@@ -4,12 +4,10 @@ App d'una sola pàgina per catalogar els llibres (escanejant l'ISBN o a mà) i s
 
 Adreça: https://gerarnedo.github.io/prestatge/ (s'actualitza sola quan es fa push a GitHub). Al mòbil, afegeix-la a la pantalla d'inici.
 
-## Les quatre parts de la pàgina
+## Les dues pàgines (menú de baix)
 
-- **Afegeix llibres**: càmera per llegir el codi de barres, ISBN a mà, llibre sense ISBN, o col·lecció (enciclopèdies: una sola entrada amb el nombre de volums i el gruix de cada volum). Es consulta Open Library i després Google Books. Tu confirmes la mida (petit fins a 24 cm, gran més de 24 cm) i el gènere.
-- **Prestatgeria**: alçat del moble a escala des del terra (dues columnes, escaló, arxivadors ratllats, nivells amb els lloms) i, per a cada nivell, a quants cm del terra va el tauló i la llista numerada de llibres. Als *Ajustos* hi ha les mides del moble, l'alçada fixa dels nivells (40 cm grans, 25 cm petits), l'ordre dels gèneres, les regles i la clau de l'assistent.
-- **Llibres**: llista amb cerca, posició de cada llibre, edició, exportació JSON/CSV i importació.
-- **Assistent**: xat per preguntar on és un llibre, classificar pendents o demanar canvis d'ordre; només aplica canvis si prems «Aplica». Cal una clau gratuïta de Groq (console.groq.com/keys). Sense clau, «Copia el catàleg» prepara el text per a qualsevol xat.
+- **Afegeix**: càmera per llegir el codi de barres, ISBN a mà, llibre sense ISBN, o col·lecció (enciclopèdies: una sola entrada amb el nombre de volums i el gruix de cada volum). Es consulta Open Library i després Google Books; tu confirmes la mida (petit fins a 24 cm, gran més de 24 cm) i el gènere. En desar, l'app diu on va el llibre: nivell, posició, entre quins llibres, i a quants cm del terra és el tauló.
+- **Prestatgeria**: cercador dels llibres que ja tens, alçat del moble a escala (els llibres cercats o l'acabat d'afegir surten ressaltats) i la llista amb la posició de cada llibre. Plegats a sota: la *Guia de muntatge* (nivells, taulons i ordre de cada nivell, imprimible), l'*Assistent* (xat; cal una clau gratuïta de Groq, o «Copia el catàleg» per a qualsevol xat) i els *Ajustos* (mides del moble, alçada fixa dels nivells, ordre dels gèneres, regles, claus).
 
 ## El moble (predefinit als Ajustos)
 
