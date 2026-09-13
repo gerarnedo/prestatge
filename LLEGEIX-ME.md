@@ -1,36 +1,24 @@
 # Prestatge
 
-App web d'un sol fitxer per catalogar els llibres escanejant l'ISBN i saber en quin ordre i a quin prestatge van, segons tres regles: mida (gran / petit) → gènere → alfabètic. L'app és a https://gerarnedo.github.io/prestatge/ i s'actualitza sola quan es fa push a GitHub.
+App d'una sola pàgina per catalogar els llibres (escanejant l'ISBN o a mà) i saber en quin nivell i posició de la prestatgeria van, segons tres regles: mida (gran / petit) → gènere → alfabètic.
 
-## Posar-la en marxa
+Adreça: https://gerarnedo.github.io/prestatge/ (s'actualitza sola quan es fa push a GitHub). Al mòbil, afegeix-la a la pantalla d'inici.
 
-1. Obre un Terminal en aquesta carpeta i executa:
+## Les quatre parts de la pàgina
 
-       python3 serveix.py
+- **Afegeix llibres**: càmera per llegir el codi de barres, ISBN a mà, llibre sense ISBN, o col·lecció (enciclopèdies: una sola entrada amb el nombre de volums i el gruix de cada volum). Es consulta Open Library i després Google Books. Tu confirmes la mida (petit fins a 24 cm, gran més de 24 cm) i el gènere.
+- **Prestatgeria**: alçat del moble a escala des del terra (dues columnes, escaló, arxivadors ratllats, nivells amb els lloms) i, per a cada nivell, a quants cm del terra va el tauló i la llista numerada de llibres. Als *Ajustos* hi ha les mides del moble, l'alçada fixa dels nivells (40 cm grans, 25 cm petits), l'ordre dels gèneres, les regles i la clau de l'assistent.
+- **Llibres**: llista amb cerca, posició de cada llibre, edició, exportació JSON/CSV i importació.
+- **Assistent**: xat per preguntar on és un llibre, classificar pendents o demanar canvis d'ordre; només aplica canvis si prems «Aplica». Cal una clau gratuïta de Groq (console.groq.com/keys). Sense clau, «Copia el catàleg» prepara el text per a qualsevol xat.
 
-2. Al mòbil, connectat a la mateixa WiFi, obre l'adreça `https://…:8443/` que surt al Terminal.
-3. El primer cop el navegador dirà que el certificat no és de confiança (és autosignat, creat al teu Mac). Accepta'l: *Avançat → Continua*.
-4. A la pestanya **Escaneja**, prem *Obre la càmera* i dona permís.
+## El moble (predefinit als Ajustos)
 
-Al Mac també funciona a `https://localhost:8443/` (sense càmera de mòbil, però pots escriure l'ISBN a mà).
-
-## Com funciona
-
-- **Escaneja**: llegeix el codi de barres (EAN-13 = ISBN). Consulta Open Library i després Google Books. Et proposa gènere i mida si la font en té dades; tu confirmes la mida (petit fins a 24 cm, gran més de 24 cm) amb un botó i deses. Amb l'assistent activat, el botó «IA» del gènere el suggereix.
-- **Assistent**: xat amb Claude que veu el catàleg sencer amb les posicions. Serveix per preguntar on és un llibre, classificar els pendents, o demanar un ordre de gèneres millor. Els canvis que proposa només s'apliquen si prems «Aplica». Funciona amb una clau gratuïta de Groq (console.groq.com/keys, models de codi obert, sense targeta), de Google Gemini (aistudio.google.com/apikey) o, si es vol, amb una clau d'Anthropic de pagament. L'assistent no rep el catàleg sencer: el consulta per parts amb eines de cerca i llistat, per encaixar en els límits gratuïts. La clau es posa a Prestatgeria → Assistent IA i es guarda només al dispositiu. Sense cap clau, el botó «Copia el catàleg» prepara el text per enganxar-lo a qualsevol xat gratuït.
-- **Llibres**: llista, cerca, edició. Els llibres sense alçada o gènere es marquen com a *pendents*. Exporta/importa JSON (còpia de seguretat) i CSV.
-- **Prestatgeria**: ve predefinida amb el moble real: dues columnes de 95 cm (esquerra i dreta), 223 cm d'alt, la dreta 7 cm amunt per l'escaló, taulons de 2 cm i 40 cm reservats a baix per als arxivadors. L'app calcula quants nivells de llibres caben a cada columna i a quina alçada va cada tauló. Aquí també s'ordenen els gèneres i es trien les regles.
-- **Ordre**: alçat del moble sencer a escala des del terra (columnes, escaló, arxivadors ratllats, nivells amb la seva alçada i els lloms), l'espai que sobra a cada columna, i per a cada nivell: a quants cm del terra va el tauló, l'alçada del nivell, dibuix dels lloms i llista numerada de posició. Si no hi cap tot, diu quants cm falten i quins llibres queden fora.
+Dues columnes de 95 cm d'ample útil, 223 cm d'alt, la dreta comença 7 cm amunt per l'escaló, taulons de 2 cm, sense tauló a dalt, i 40 cm reservats a baix per als arxivadors. Els nivells tenen alçada fixa: 40 cm els de llibres grans i 25 cm els de petits. L'app només decideix quants nivells van a cada columna i on va cada tauló; l'espai que sobra queda com a nivell lliure a baix.
 
 ## Dades
 
-Tot es desa al navegador del mòbil (localStorage), no a cap servidor. Dues conseqüències:
+Tot es desa al navegador del mòbil, no a cap servidor. Fes *Exporta JSON* de tant en tant i guarda el fitxer: és la còpia de seguretat, i serveix per passar el catàleg a un altre dispositiu amb *Importa*.
 
-- Si l'obres des d'una altra adreça o un altre dispositiu, comença buida. Passa-hi les dades amb *Exporta JSON* → *Importa*.
-- Fes *Exporta JSON* de tant en tant (per exemple en acabar cada sessió d'escaneig) i desa el fitxer a Fitxers/Drive. És la teva còpia de seguretat: si esborres dades del navegador, es perd el catàleg.
+## Servir-la des del Mac (alternativa)
 
-## Límits coneguts
-
-- Sense clau d'API, Google Books té un límit diari compartit; Open Library no en té. Pots posar una clau pròpia a *Prestatgeria → Fonts de dades*.
-- L'alçada real gairebé mai ve a les APIs: la classe d'alçada la tries tu. El gruix s'estima a partir de les pàgines si no el poses.
-- L'app necessita internet per consultar les fitxes; la resta funciona sense.
+`python3 serveix.py` la serveix per HTTPS a la WiFi de casa; cal acceptar el certificat autosignat el primer cop.
