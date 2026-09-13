@@ -91,6 +91,7 @@ nav.tabs button.active{color:var(--accent);font-weight:600}
 .fill i{display:block;height:100%;background:var(--accent)}
 .fill i.over{background:var(--bad)}
 .rec{margin:0 0 8px;padding:8px 10px;background:var(--accent-soft);border-radius:8px;font-size:14px}
+.elev{width:100%;height:auto;display:block;background:var(--paper);border-radius:8px;font-family:var(--sans)}
 .spines{display:flex;align-items:flex-end;gap:1px;padding:0 6px;height:120px;overflow-x:auto;background:linear-gradient(to top,var(--shelf) 0 8px,transparent 8px);border-bottom:6px solid var(--shelf-dark);border-radius:2px}
 .spine{flex:0 0 auto;border-radius:2px 2px 0 0;position:relative;min-width:3px;opacity:.9;border-right:1px solid rgba(0,0,0,.18)}
 .spine span{position:absolute;left:50%;bottom:6px;transform:translateX(-50%) rotate(-90deg);transform-origin:center;white-space:nowrap;font-size:9px;color:#fff;text-shadow:0 0 2px rgba(0,0,0,.6);pointer-events:none}
@@ -206,11 +207,12 @@ dialog .wrap{padding:16px}
       <div class="card stack">
         <h2>Assistent IA</h2>
         <label class="f"><span>Model</span><select id="optAiModel">
-          <optgroup label="Google Gemini · gratuït, sense targeta"><option value="gemini-2.5-flash">Gemini 2.5 Flash (recomanat)</option><option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (més límit diari)</option></optgroup>
+          <optgroup label="Groq · gratuït, models de codi obert"><option value="openai/gpt-oss-120b">GPT-OSS 120B (recomanat)</option><option value="llama-3.3-70b-versatile">Llama 3.3 70B</option><option value="qwen/qwen3.6-27b">Qwen 3.6 27B</option></optgroup>
+          <optgroup label="Google Gemini · gratuït"><option value="gemini-2.5-flash">Gemini 2.5 Flash</option><option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option></optgroup>
           <optgroup label="Anthropic · de pagament"><option value="claude-opus-5">Claude Opus 5</option><option value="claude-sonnet-5">Claude Sonnet 5</option><option value="claude-haiku-4-5">Claude Haiku 4.5</option></optgroup>
         </select></label>
-        <label class="f"><span>Clau de l'API del proveïdor triat</span><input type="password" id="optAiKey" placeholder="AIza… (Gemini) o sk-ant-… (Anthropic)" autocomplete="off"></label>
-        <p class="muted"><b>Gratuït:</b> crea una clau a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> amb el teu compte de Google, sense targeta. El nivell gratuït dona uns centenars de preguntes al dia i Google pot fer servir el que hi enviïs per millorar els seus models. La clau viu només al navegador d'aquest dispositiu i no s'exporta.</p>
+        <label class="f"><span>Clau de l'API del proveïdor triat</span><input type="password" id="optAiKey" placeholder="gsk_… (Groq) · AIza… (Gemini) · sk-ant-… (Anthropic)" autocomplete="off"></label>
+        <p class="muted"><b>Groq, gratuït:</b> entra a <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> (compte amb Google o GitHub, sense targeta), prem <i>Create API Key</i>, copia la clau i enganxa-la aquí. El nivell gratuït dona 1.000 peticions al dia i uns 8.000 tokens per minut: per això l'assistent consulta el catàleg per parts en lloc d'enviar-lo sencer. La clau viu només al navegador d'aquest dispositiu i no s'exporta.</p>
       </div>
       <div class="card stack">
         <h2>Fonts de dades</h2>
@@ -226,7 +228,8 @@ dialog .wrap{padding:16px}
       <div class="card stack">
         <h2>Assistent</h2>
         <p class="muted">Pregunta on és un llibre, demana que classifiqui els pendents o que et proposi un ordre de gèneres millor. L'assistent veu tot el catàleg amb les posicions calculades i només canvia coses si tu ho aproves.</p>
-        <p class="muted" id="aiNoKey">Per fer servir el xat cal una clau d'API gratuïta de Google Gemini. Posa-la a <b>Prestatgeria → Assistent IA</b>. Es desa només en aquest dispositiu.</p>
+        <p class="muted" id="aiNoKey">Per fer servir el xat cal una clau d'API gratuïta (Groq o Gemini). Posa-la a <b>Prestatgeria → Assistent IA</b>. Es desa només en aquest dispositiu.</p>
+        <p class="muted" id="aiModelLbl"></p>
         <div class="row"><button class="small" id="btnCopyCatalog">Copia el catàleg per enganxar-lo en un xat</button><span class="muted">Sense clau: enganxa-ho a l'app gratuïta de Claude, ChatGPT o Gemini i pregunta-hi.</span></div>
       </div>
       <div class="chips" id="aiChips">
@@ -658,6 +661,33 @@ for(const [id,k,prop] of [['#optHeightDir','heightDir','value'],['#optAlpha','al
 
 /* --- Ordre --- */
 function genreColor(g){ let h=0; for(const c of (g||'')) h=(h*31+c.charCodeAt(0))>>>0; const i=state.genres.indexOf(g); const hue=i>=0?Math.round(i*360/Math.max(6,state.genres.length)):h%360; return `hsl(${hue} 38% 42%)`; }
+// Alçat de la prestatgeria a escala (unitats del viewBox = cm)
+function renderElevation(shelves){
+  const W=Math.max(1,...shelves.map(s=>s.width)); const side=2, board=2, top=1, dimR=13, dimB=6;
+  const comps=shelves.map(s=>({s,h:s.maxHeight||recommendedShelfH(s.books)||(+state.opts.minShelfH||20)}));
+  const H=comps.reduce((a,c)=>a+c.h+board,board);
+  const vw=W+side*2+dimR, vh=H+top+dimB;
+  let y=top, svg=`<svg class="elev" viewBox="0 0 ${vw} ${vh}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Alçat de la prestatgeria">`;
+  svg+=`<rect x="0" y="${top}" width="${side}" height="${H}" fill="var(--shelf-dark)"/><rect x="${side+W}" y="${top}" width="${side}" height="${H}" fill="var(--shelf-dark)"/>`;
+  svg+=`<rect x="0" y="${top}" width="${W+side*2}" height="${board}" fill="var(--shelf)"/>`; y+=board;
+  for(const c of comps){
+    const floor=y+c.h;
+    let x=side;
+    for(const b of c.s.books){ const w=estimateThickness(b)/10, h=Math.min(heightCm(b),c.h-0.4);
+      svg+=`<rect x="${x.toFixed(2)}" y="${(floor-h).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${genreColor(b.genre||'Altres')}" stroke="rgba(0,0,0,.3)" stroke-width="0.08"><title>${esc(b.title)} · ${esc((b.authors||[]).join('; '))}</title></rect>`;
+      if(w>=1.5){ const chars=Math.max(0,Math.floor((h-1.5)/0.62)); svg+=`<text transform="translate(${(x+w/2+0.4).toFixed(2)} ${(floor-0.7).toFixed(2)}) rotate(-90)" font-size="1.05" fill="#fff" fill-opacity=".92">${esc(b.title.slice(0,chars))}</text>`; }
+      x+=w; }
+    svg+=`<text x="${side+0.8}" y="${(y+2).toFixed(2)}" font-size="1.5" fill="var(--ink-2)">${esc(c.s.name)}</text>`;
+    const dx=W+side*2+2.5;
+    svg+=`<line x1="${dx}" y1="${y}" x2="${dx}" y2="${floor}" stroke="var(--ink-2)" stroke-width="0.15"/><line x1="${dx-0.8}" y1="${y}" x2="${dx+0.8}" y2="${y}" stroke="var(--ink-2)" stroke-width="0.15"/><line x1="${dx-0.8}" y1="${floor}" x2="${dx+0.8}" y2="${floor}" stroke="var(--ink-2)" stroke-width="0.15"/><text x="${dx+1.5}" y="${(y+c.h/2+0.7).toFixed(2)}" font-size="1.9" fill="var(--ink)">${c.h} cm</text>`;
+    svg+=`<rect x="0" y="${floor}" width="${W+side*2}" height="${board}" fill="var(--shelf)"/>`;
+    y=floor+board;
+  }
+  const by=vh-2.6;
+  svg+=`<line x1="${side}" y1="${by}" x2="${side+W}" y2="${by}" stroke="var(--ink-2)" stroke-width="0.15"/><line x1="${side}" y1="${by-0.8}" x2="${side}" y2="${by+0.8}" stroke="var(--ink-2)" stroke-width="0.15"/><line x1="${side+W}" y1="${by-0.8}" x2="${side+W}" y2="${by+0.8}" stroke="var(--ink-2)" stroke-width="0.15"/><text x="${side+W/2}" y="${vh-0.4}" font-size="1.9" text-anchor="middle" fill="var(--ink)">${W} cm</text>`;
+  svg+='</svg>';
+  return `<div class="card shelfblock"><h3><span>Alçat</span><span class="muted">${H} cm d'alt en total</span></h3><p class="muted">Vista frontal a escala amb les alçades de muntatge recomanades. Toca un llom per veure el títol.</p>${svg}</div>`;
+}
 function renderOrder(){
   const out=$('#orderOut'); out.innerHTML='';
   if(!state.books.length){ out.innerHTML='<p class="muted">Sense llibres. Escaneja\'n uns quants i torna.</p>'; $('#orderSummary').textContent=''; return; }
@@ -667,6 +697,7 @@ function renderOrder(){
   const cap=shelves.reduce((a,s)=>a+s.width,0);
   $('#orderSummary').textContent=`${state.books.length} llibres · ${(totalMm/10).toFixed(0)} cm de llom · ${cap} cm de prestatge`+(totalMm/10>cap?' · NO HI CAP TOT':'')+(pending?` · ${pending} pendents (col·locats com a petit/Altres)`:'');
   const usedGenres=new Set();
+  out.insertAdjacentHTML('beforeend',renderElevation(shelves));
   shelves.forEach((s,si)=>{
     const div=document.createElement('div'); div.className='shelfblock card';
     const pct=s.widthMm?Math.min(100,Math.round(s.used/s.widthMm*100)):0;
@@ -696,12 +727,25 @@ $('#btnPrint').addEventListener('click',()=>window.print());
 
 /* ---------- Assistent: crida directa a l'API del proveïdor (Gemini gratuït o Anthropic) des del navegador amb la clau de l'usuari ---------- */
 const ai={
-  model(){ const m=state.opts.aiModel||''; return /^(gemini|claude)/.test(m)?m:'gemini-2.5-flash'; },
-  provider(){ return /^gemini/.test(this.model())?'gemini':'anthropic'; },
+  model(){ return state.opts.aiModel||'openai/gpt-oss-120b'; },
+  provider(){ const m=this.model(); return /^gemini/.test(m)?'gemini':/^claude/.test(m)?'anthropic':'groq'; },
+  providerName(){ return {groq:'Groq, gratuït',gemini:'Google Gemini, gratuït',anthropic:'Anthropic, de pagament'}[this.provider()]; },
   // Petició neutra: {system, messages (historial neutre), tools:[{name,description,schema}], force?, maxTokens, effort}
   async call(req){
     if(!secret.get()) throw new Error('nokey');
-    return this.provider()==='gemini' ? this.callGemini(req) : this.callAnthropic(req);
+    const p=this.provider();
+    return p==='gemini' ? this.callGemini(req) : p==='anthropic' ? this.callAnthropic(req) : this.callGroq(req);
+  },
+  async callGroq(req){
+    const msgs=[{role:'system',content:req.system}].concat(req.messages.flatMap(m=> m.role==='user'?[{role:'user',content:m.text}]
+      : m.role==='assistant'?[Object.assign({role:'assistant',content:m.text||null},m.calls.length?{tool_calls:m.calls.map(c=>({id:c.id,type:'function',function:{name:c.name,arguments:JSON.stringify(c.args)}}))}:{})]
+      : m.results.map(r=>({role:'tool',tool_call_id:r.id,name:r.name,content:r.text}))));
+    const body={model:this.model(),messages:msgs,max_tokens:Math.min(req.maxTokens,4000),temperature:0.3};
+    if(req.tools.length){ body.tools=req.tools.map(t=>({type:'function',function:{name:t.name,description:t.description,parameters:t.schema}})); body.tool_choice=req.force?{type:'function',function:{name:req.force}}:'auto'; }
+    const j=await this.post('https://api.groq.com/openai/v1/chat/completions',{'content-type':'application/json','authorization':'Bearer '+secret.get()},body);
+    const m=j.choices&&j.choices[0]&&j.choices[0].message; if(!m) throw new Error('Resposta buida del model');
+    const calls=(m.tool_calls||[]).map(c=>{ let a={}; try{ a=JSON.parse(c.function.arguments||'{}') }catch(e){} return {id:c.id,name:c.function.name,args:a}; });
+    return {text:m.content||'',calls,inp:j.usage?.prompt_tokens||0,out:j.usage?.completion_tokens||0};
   },
   async post(url,headers,body){
     const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body)});
@@ -734,53 +778,69 @@ const ai={
     const g=this.provider()==='gemini';
     if(e.message==='nokey') return 'Cal la clau de l\'API a Prestatgeria → Assistent IA';
     if(e.status===401||e.status===403||/API key not valid/i.test(e.message)) return 'La clau de l\'API no és vàlida per al model triat';
-    if(e.status===429) return g?'Has arribat al límit gratuït de Gemini (per minut o per avui). Espera una mica o prova Flash-Lite.':'Has superat el límit de peticions. Espera un moment.';
+    if(e.status===429) return g?'Has arribat al límit gratuït de Gemini (per minut o per avui). Espera una mica o prova Flash-Lite.':'Has arribat al límit de peticions del nivell gratuït. Espera un minut i torna-hi.';
+    if(e.status===413||/too large|tokens per minute|TPM/i.test(e.message)) return 'La petició és massa gran per al límit per minut del nivell gratuït. Comença una conversa nova o espera un minut.';
     if(e.status===404) return 'El model triat no està disponible amb aquesta clau';
     if(e.status===400) return 'L\'API ha rebutjat la petició: '+e.message;
     if(e.message==='refusal') return 'El model ha declinat respondre.';
     if(e.message==='Failed to fetch') return 'No s\'ha pogut connectar amb l\'API (sense connexió?)';
     return 'Error de l\'assistent: '+e.message;
   },
-  catalog(){
-    const pos=positions();
-    const lines=sortedBooks().map(b=>{ const p=pos.get(b.id); return [b.id,b.title,(b.authors||[]).join('; '),b.heightClass||'?',b.genre||'?',p?p.shelf:'fora',p?p.pos:'-',estimateThickness(b)+'mm',b.publisher||'',b.year||''].join(' | '); });
-    return 'id | títol | autors | mida | gènere | prestatge | posició | gruix | editorial | any\n'+lines.join('\n');
-  },
+  // Files del catàleg amb un número curt (#n) que el model pot citar; el mapa n→id es refà a cada consulta.
+  rows(){ const pos=positions(); this.ids=new Map(); return sortedBooks().map((b,i)=>{ const p=pos.get(b.id); this.ids.set(String(i+1),b.id); return {n:i+1,b,shelf:p?p.shelf:'fora (no hi cap)',pos:p?p.pos:'-'}; }); },
+  line(r){ return `#${r.n} | ${r.b.title} | ${(r.b.authors||[]).join('; ')} | ${r.b.heightClass||'?'} | ${r.b.genre||'?'} | ${r.shelf} | pos ${r.pos}`; },
+  fullText(){ return this.system()+'\n\nCatàleg complet (#n | títol | autors | mida | gènere | prestatge | posició):\n'+this.rows().map(r=>this.line(r)).join('\n'); },
   system(){
-    const rec=placeBooks().shelves.map(s=>`${s.name}: ${s.width} cm d'ample, ${(s.used/10).toFixed(0)} cm ocupats, ${s.books.length} llibres, alçada de muntatge recomanada ${recommendedShelfH(s.books)} cm`).join('\n');
+    const {shelves,overflow}=placeBooks();
+    const rec=shelves.map(s=>`${s.name}: ${s.width} cm d'ample, ${(s.used/10).toFixed(0)} cm ocupats, ${s.books.length} llibres, alçada de muntatge recomanada ${recommendedShelfH(s.books)} cm`).join('\n');
+    const gc=state.genres.map(g=>`${g} (${state.books.filter(b=>b.genre===g).length})`).join(', ');
+    const n=state.books.length, grans=state.books.filter(b=>b.heightClass==='gran').length, petits=state.books.filter(b=>b.heightClass==='petit').length, pend=state.books.filter(isPending).length;
     return `Ets l'assistent de «Prestatge», una app que ordena la prestatgeria de casa d'en Gerard. Respon sempre en català, breu i concret.
 
-Regles d'ordenació de l'app, en aquest ordre: 1) mida (${state.opts.heightDir==='desc'?'grans primer':'petits primer'}; només hi ha dues mides: petit fins a 24 cm i gran més de 24 cm), 2) gènere segons aquest ordre: ${state.genres.join(' → ')}, 3) alfabètic per ${state.opts.alpha==='author'?'cognom del primer autor':'títol'}. Els llibres es reparteixen omplint els prestatges de dalt a baix.
+Regles d'ordenació, en aquest ordre: 1) mida (${state.opts.heightDir==='desc'?'grans primer':'petits primer'}; només hi ha dues mides: petit fins a 24 cm i gran més de 24 cm), 2) gènere segons aquest ordre: ${state.genres.join(' → ')}, 3) alfabètic per ${state.opts.alpha==='author'?'cognom del primer autor':'títol'}. Els llibres omplen els prestatges de dalt a baix; la posició és l'ordre dins del prestatge començant per l'esquerra.
 
 Prestatges:
-${rec}
+${rec}${overflow.length?`\nNo hi caben: ${overflow.length} llibres`:''}
 
-Catàleg (una línia per llibre; posició = ordre dins del prestatge començant per l'esquerra; «?» vol dir pendent de classificar):
-${this.catalog()}
+Catàleg: ${n} llibres (${grans} grans, ${petits} petits, ${pend} pendents de classificar). Gèneres i quants llibres té cadascun: ${gc}.
 
+No tens el catàleg sencer al context. Fes servir les eines: cerca_llibres per trobar un llibre (funciona amb títols aproximats), llista_llibres per veure grups (filtre "pendents", un gènere, un prestatge o "tots", amb paginació). Cada llibre té un número curt #n; cita'l només si cal.
 Què pots fer:
-- Dir on és un llibre: prestatge, posició i entre quins llibres queda. Si el títol no coincideix exactament, busca el més semblant i digues-ho.
-- Classificar llibres (gènere i mida) quan t'ho demanin o siguin pendents: fes servir l'eina proposar_canvis amb l'id de cada llibre. Tria només gèneres de la llista. No inventis la mida si no la pots deduir amb força seguretat: deixa-la buida.
-- Proposar un ordre de gèneres diferent amb l'eina proposar_canvis, i el motiu.
-- Recomanar millores d'ordenació, detectar duplicats, gèneres mal posats o noms d'autor inconsistents.
-Quan facis servir l'eina, l'usuari veurà la proposta i decidirà si l'aplica; explica en una frase què proposes i per què.`;
+- Dir on és un llibre: prestatge i posició, i si pots, entre quins llibres queda (mira els veïns amb llista_llibres del prestatge).
+- Classificar llibres pendents: primer llista_llibres("pendents"), després proposar_canvis amb el número #n de cada llibre. Tria només gèneres de la llista. Si no pots deduir la mida amb força seguretat, deixa-la buida.
+- Proposar un ordre de gèneres diferent amb proposar_canvis, explicant el motiu.
+- Recomanar millores: gèneres mal posats, duplicats, noms d'autor inconsistents.
+Quan proposis canvis, l'usuari els veurà i decidirà si els aplica; explica en una frase què proposes i per què. No diguis mai que has aplicat res.`;
   },
-  tools(){ return [{name:'proposar_canvis',description:'Proposa canvis al catàleg o a la configuració. L\'usuari els revisa i els aplica manualment.',schema:{type:'object',additionalProperties:false,properties:{
+  tools(){ return [
+    {name:'cerca_llibres',description:'Cerca al catàleg per títol, autor, gènere o ISBN (coincidència parcial, ignora accents). Retorna fins a 30 llibres amb número, mida, gènere, prestatge i posició.',schema:{type:'object',additionalProperties:false,properties:{text:{type:'string',description:'Text a buscar'}},required:['text']}},
+    {name:'llista_llibres',description:'Llista llibres en ordre de prestatgeria segons un filtre: "pendents" (sense mida o gènere), "tots", el nom d\'un gènere, el nom d\'un prestatge, o "gran"/"petit". Retorna fins a 60 llibres; fes servir desde per paginar.',schema:{type:'object',additionalProperties:false,properties:{filtre:{type:'string'},desde:{type:'integer',description:'Índex inicial, 0 per començar'}},required:['filtre','desde']}},
+    {name:'proposar_canvis',description:'Proposa canvis al catàleg o a la configuració. L\'usuari els revisa i els aplica manualment.',schema:{type:'object',additionalProperties:false,properties:{
       motiu:{type:'string',description:'Una frase explicant la proposta'},
       ordreGeneres:{type:'array',items:{type:'string'},description:'Nou ordre complet dels gèneres; buit si no canvia'},
-      llibres:{type:'array',description:'Canvis per llibre; buit si no n\'hi ha',items:{type:'object',additionalProperties:false,properties:{id:{type:'string'},genre:{type:'string',description:'Gènere de la llista, o cadena buida per no canviar-lo'},heightClass:{type:'string',enum:['petit','gran','']}},required:['id','genre','heightClass']}}
-    },required:['motiu','ordreGeneres','llibres']}}]; },
+      llibres:{type:'array',description:'Canvis per llibre; buit si no n\'hi ha',items:{type:'object',additionalProperties:false,properties:{id:{type:'string',description:'Número del llibre, p. ex. "#12"'},genre:{type:'string',description:'Gènere de la llista, o cadena buida per no canviar-lo'},heightClass:{type:'string',enum:['petit','gran','']}},required:['id','genre','heightClass']}}
+    },required:['motiu','ordreGeneres','llibres']}}
+  ]; },
+  runTool(name,args){
+    args=args||{};
+    const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const rows=this.rows();
+    if(name==='cerca_llibres'){ const q=norm(args.text); if(!q) return {text:'Cal un text de cerca.'}; const hits=rows.filter(r=>norm([r.b.title,(r.b.authors||[]).join(' '),r.b.genre,r.b.isbn].join(' ')).includes(q)); return {text:hits.length?hits.slice(0,30).map(r=>this.line(r)).join('\n')+(hits.length>30?`\n… i ${hits.length-30} més`:''):`Cap llibre coincideix amb «${args.text}». Prova amb una paraula del títol o el cognom de l'autor.`}; }
+    if(name==='llista_llibres'){ const f=norm(args.filtre); let sel=rows; if(f==='pendents') sel=rows.filter(r=>isPending(r.b)); else if(f&&f!=='tots') sel=rows.filter(r=>norm(r.b.genre)===f||norm(r.shelf)===f||norm(r.b.heightClass)===f); const from=Math.max(0,parseInt(args.desde)||0); const page=sel.slice(from,from+60); return {text:`${sel.length} llibres`+(page.length?`, mostrant ${from+1}–${from+page.length}:\n`+page.map(r=>this.line(r)).join('\n'):'.')}; }
+    if(name==='proposar_canvis'){ const prop=this.parseProposal(args); return {prop,text:prop.items.length?`Proposta registrada amb ${prop.items.length} canvis; l'usuari la veu i decidirà si l'aplica.`:'La proposta no conté cap canvi aplicable (números desconeguts o valors iguals als actuals).'}; }
+    return {text:'Eina desconeguda: '+name};
+  },
   history:[], usage:{inp:0,out:0},
   async chat(text,onUpdate){
     this.history.push({role:'user',text});
     const proposals=[]; let finalText='';
-    for(let round=0;round<4;round++){
-      const r=await this.call({system:this.system(),messages:this.history,tools:this.tools(),maxTokens:8000,effort:'medium'});
+    for(let round=0;round<6;round++){
+      const r=await this.call({system:this.system(),messages:this.history,tools:this.tools(),maxTokens:4000,effort:'medium'});
       this.usage.inp+=r.inp; this.usage.out+=r.out;
       this.history.push({role:'assistant',text:r.text,calls:r.calls});
       const t=r.text.trim(); if(t) finalText+=(finalText?'\n\n':'')+t;
       if(!r.calls.length) break;
-      const results=r.calls.map(c=>{ const prop=this.parseProposal(c.args||{}); proposals.push(prop); return {id:c.id,name:c.name,text:prop.items.length?`Proposta registrada amb ${prop.items.length} canvis. L'usuari la veu i pot aplicar-la.`:'La proposta no conté cap canvi aplicable.'}; });
+      const results=r.calls.map(c=>{ const res=this.runTool(c.name,c.args); if(res.prop) proposals.push(res.prop); return {id:c.id,name:c.name,text:res.text}; });
       this.history.push({role:'tool',results});
       if(onUpdate) onUpdate(finalText,proposals);
     }
@@ -789,7 +849,7 @@ Quan facis servir l'eina, l'usuari veurà la proposta i decidirà si l'aplica; e
   parseProposal(inp){
     const items=[];
     if(Array.isArray(inp.ordreGeneres)&&inp.ordreGeneres.length){ const known=new Set(state.genres); const order=inp.ordreGeneres.filter(g=>known.has(g)); const missing=state.genres.filter(g=>!order.includes(g)); const full=order.concat(missing); if(full.join()!==state.genres.join()) items.push({kind:'order',order:full,label:'Ordre de gèneres: '+full.join(' → ')}); }
-    for(const c of (inp.llibres||[])){ const b=state.books.find(x=>x.id===c.id); if(!b) continue; const ch={};
+    for(const c of (inp.llibres||[])){ const key=String(c.id||'').replace(/^#/,'').trim(); const b=state.books.find(x=>x.id===key)||state.books.find(x=>x.id===(this.ids&&this.ids.get(key))); if(!b) continue; const ch={};
       if(c.genre && state.genres.includes(c.genre) && c.genre!==b.genre) ch.genre=c.genre;
       if(c.heightClass && HEIGHTS.some(h=>h.id===c.heightClass) && c.heightClass!==b.heightClass) ch.heightClass=c.heightClass;
       if(Object.keys(ch).length) items.push({kind:'book',id:b.id,changes:ch,label:`«${b.title}»: `+[ch.genre?'gènere → '+ch.genre:'',ch.heightClass?'mida → '+ch.heightClass:''].filter(Boolean).join(', ')}); }
@@ -809,13 +869,15 @@ Quan facis servir l'eina, l'usuari veurà la proposta i decidirà si l'aplica; e
   }
 };
 $('#btnCopyCatalog').addEventListener('click',async()=>{
-  const txt=ai.system()+'\n\nLa meva pregunta: ';
+  const txt=ai.fullText()+'\n\nLa meva pregunta: ';
   try{ await navigator.clipboard.writeText(txt); toast('Catàleg copiat. Enganxa\'l en un xat i escriu la pregunta al final.'); }
   catch(e){ download('prestatge-cataleg.txt',txt,'text/plain'); toast('Catàleg desat com a fitxer de text'); }
 });
 function renderAi(){
   const has=!!secret.get();
   $('#aiNoKey').hidden=has; $('#aiChips').hidden=!has; $('#aiForm').hidden=!has; $('#aiFooter').hidden=!has;
+  $('#aiModelLbl').innerHTML=`Model: <b>${esc(ai.model())}</b> (${esc(ai.providerName())}) · <a href="#" id="aiGoSettings">canvia'l a Prestatgeria</a>`;
+  $('#aiGoSettings').addEventListener('click',e=>{ e.preventDefault(); showView('shelves'); setTimeout(()=>$('#optAiModel').scrollIntoView({behavior:'smooth',block:'center'}),50); });
 }
 function addMsg(cls,text){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=text; $('#chat').appendChild(d); d.scrollIntoView({block:'nearest'}); return d; }
 function addProposal(prop){

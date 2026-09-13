@@ -17,10 +17,10 @@ Al Mac també funciona a `https://localhost:8443/` (sense càmera de mòbil, per
 ## Com funciona
 
 - **Escaneja**: llegeix el codi de barres (EAN-13 = ISBN). Consulta Open Library i després Google Books. Et proposa gènere i mida si la font en té dades; tu confirmes la mida (petit fins a 24 cm, gran més de 24 cm) amb un botó i deses. Amb l'assistent activat, el botó «IA» del gènere el suggereix.
-- **Assistent**: xat amb Claude que veu el catàleg sencer amb les posicions. Serveix per preguntar on és un llibre, classificar els pendents, o demanar un ordre de gèneres millor. Els canvis que proposa només s'apliquen si prems «Aplica». Funciona amb una clau gratuïta de Google Gemini (aistudio.google.com/apikey, sense targeta) o, si es vol, amb una clau d'Anthropic de pagament. La clau es posa a Prestatgeria → Assistent IA i es guarda només al dispositiu. Sense cap clau, el botó «Copia el catàleg» prepara el text per enganxar-lo a qualsevol xat gratuït.
+- **Assistent**: xat amb Claude que veu el catàleg sencer amb les posicions. Serveix per preguntar on és un llibre, classificar els pendents, o demanar un ordre de gèneres millor. Els canvis que proposa només s'apliquen si prems «Aplica». Funciona amb una clau gratuïta de Groq (console.groq.com/keys, models de codi obert, sense targeta), de Google Gemini (aistudio.google.com/apikey) o, si es vol, amb una clau d'Anthropic de pagament. L'assistent no rep el catàleg sencer: el consulta per parts amb eines de cerca i llistat, per encaixar en els límits gratuïts. La clau es posa a Prestatgeria → Assistent IA i es guarda només al dispositiu. Sense cap clau, el botó «Copia el catàleg» prepara el text per enganxar-lo a qualsevol xat gratuït.
 - **Llibres**: llista, cerca, edició. Els llibres sense alçada o gènere es marquen com a *pendents*. Exporta/importa JSON (còpia de seguretat) i CSV.
 - **Prestatgeria**: ve predefinida amb els dos prestatges de 95 cm. L'alçada es deixa buida perquè és muntable: l'app la recomana. Aquí també s'ordenen els gèneres i es trien les regles.
-- **Ordre**: per a cada prestatge, a quina alçada muntar-lo (passos de 5 cm des de 20), dibuix dels lloms i llista numerada de posició. Si no hi cap tot, diu quants cm falten i quins llibres queden fora.
+- **Ordre**: alçat de la prestatgeria a escala (vista frontal amb les alçades de muntatge i els lloms), i per a cada prestatge, a quina alçada muntar-lo (passos de 5 cm des de 20), dibuix dels lloms i llista numerada de posició. Si no hi cap tot, diu quants cm falten i quins llibres queden fora.
 
 ## Dades
 
